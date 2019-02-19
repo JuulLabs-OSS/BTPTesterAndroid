@@ -3,6 +3,7 @@ package com.juul.btptesterandroid;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.widget.TextView;
 
 import com.neovisionaries.ws.client.WebSocket;
 import com.neovisionaries.ws.client.WebSocketAdapter;
@@ -26,11 +27,14 @@ public class MainActivity extends AppCompatActivity {
     private static final int TIMEOUT = 5000;
 
     WebSocket ws = null;
+    TextView statusTextView = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        statusTextView = (TextView)findViewById(R.id.statusText);
 
         // Create a WebSocket factory and set 5000 milliseconds as a timeout
         // value for socket connection.
@@ -54,6 +58,9 @@ public class MainActivity extends AppCompatActivity {
         public void onConnected(WebSocket websocket, Map<String, List<String>> headers) throws Exception {
             Log.d("TAG", "onConnected");
             super.onConnected(websocket, headers);
+
+            statusTextView.setText("Connected to " + websocket.getURI().toString());
+
             sendMessage();
         }
 
@@ -67,6 +74,8 @@ public class MainActivity extends AppCompatActivity {
         public void onDisconnected(WebSocket websocket, WebSocketFrame serverCloseFrame, WebSocketFrame clientCloseFrame, boolean closedByServer) throws Exception {
             Log.d("TAG", "onDisconnected");
             super.onDisconnected(websocket, serverCloseFrame, clientCloseFrame, closedByServer);
+            statusTextView.setText("Disconnected");
+
             // Create a new WebSocket instance and connect to the same endpoint.
             ws = ws.recreate().connect();
         }
