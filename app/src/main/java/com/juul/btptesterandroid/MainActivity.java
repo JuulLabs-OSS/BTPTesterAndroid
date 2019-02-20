@@ -25,16 +25,19 @@ public class MainActivity extends AppCompatActivity {
      * The timeout value in milliseconds for socket connection.
      */
     private static final int TIMEOUT = 5000;
+    private static final int RECONNECT_TIMEOUT = 3000;
 
     WebSocket ws = null;
     TextView statusTextView = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.d("TAG", "onCreate");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        statusTextView = (TextView)findViewById(R.id.statusText);
+        statusTextView = findViewById(R.id.statusText);
+        statusTextView.setText("Disconnected");
 
         // Create a WebSocket factory and set 5000 milliseconds as a timeout
         // value for socket connection.
@@ -53,31 +56,36 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private void tryReconnect() {
+        try {
+            Thread.sleep(RECONNECT_TIMEOUT);
+            ws = ws.recreate().connectAsynchronously();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     WebSocketAdapter adapter = new WebSocketAdapter() {
         @Override
-        public void onConnected(WebSocket websocket, Map<String, List<String>> headers) throws Exception {
+        public void onConnected(WebSocket websocket, Map<String, List<String>> headers) {
             Log.d("TAG", "onConnected");
-            super.onConnected(websocket, headers);
-
-            statusTextView.setText("Connected to " + websocket.getURI().toString());
-
             sendMessage();
         }
 
         @Override
-        public void onConnectError(WebSocket websocket, WebSocketException exception) throws Exception {
+        public void onConnectError(WebSocket websocket, WebSocketException exception) {
             Log.d("TAG", "onConnectError");
-            super.onConnectError(websocket, exception);
+            tryReconnect();
         }
 
         @Override
-        public void onDisconnected(WebSocket websocket, WebSocketFrame serverCloseFrame, WebSocketFrame clientCloseFrame, boolean closedByServer) throws Exception {
+        public void onDisconnected(WebSocket websocket, WebSocketFrame serverCloseFrame,
+                                   WebSocketFrame clientCloseFrame, boolean closedByServer) {
             Log.d("TAG", "onDisconnected");
-            super.onDisconnected(websocket, serverCloseFrame, clientCloseFrame, closedByServer);
-            statusTextView.setText("Disconnected");
-
-            // Create a new WebSocket instance and connect to the same endpoint.
-            ws = ws.recreate().connect();
+            tryReconnect();
         }
 
         @Override
@@ -86,15 +94,13 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        public void onBinaryMessage(WebSocket websocket, byte[] binary) throws Exception {
+        public void onBinaryMessage(WebSocket websocket, byte[] binary) {
             Log.d("TAG", "onBinaryMessage");
-            super.onBinaryMessage(websocket, binary);
         }
 
         @Override
-        public void onUnexpectedError(WebSocket websocket, WebSocketException cause) throws Exception {
+        public void onUnexpectedError(WebSocket websocket, WebSocketException cause) {
             Log.d("TAG", "onUnexpectedError");
-            super.onUnexpectedError(websocket, cause);
         }
 
     };
