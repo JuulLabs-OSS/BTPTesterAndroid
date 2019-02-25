@@ -4,14 +4,14 @@ public class Utils {
 
     static void setBit(byte[] data, int bit)
     {
-        int byteIdx = data.length + (bit / 8);
+        int byteIdx = (bit / 8);
 
         data[byteIdx] = setBit(data[byteIdx], bit % 8);
     }
 
     static byte testBit(final byte[] data, int bit)
     {
-        int byteIdx = data.length + (bit / 8);
+        int byteIdx = (bit / 8);
 
         return testBit(data[byteIdx], bit % 8);
     }
