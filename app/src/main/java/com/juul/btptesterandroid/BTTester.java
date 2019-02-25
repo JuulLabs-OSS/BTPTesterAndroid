@@ -1,5 +1,8 @@
 package com.juul.btptesterandroid;
 
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothManager;
+import android.content.Context;
 import android.util.Log;
 
 import com.neovisionaries.ws.client.WebSocket;
@@ -22,6 +25,9 @@ public class BTTester {
     private static final int TIMEOUT = 5000;
     private static final int RECONNECT_TIMEOUT = 3000;
 
+    private Context context;
+    private BluetoothAdapter bleAdapter;
+    private BluetoothManager bleManager;
     private WebSocket ws = null;
 
     private GAP gap = null;
@@ -108,6 +114,11 @@ public class BTTester {
         }
     }
 
+    public BTTester(Context context, BluetoothAdapter bleAdapter, BluetoothManager bleManager) {
+        this.context = context;
+        this.bleAdapter = bleAdapter;
+        this.bleManager = bleManager;
+    }
 
     public void init() {
         // Create a WebSocket factory and set 5000 milliseconds as a timeout
@@ -211,7 +222,7 @@ public class BTTester {
                     status = BTP_STATUS_FAILED;
                 } else {
                     gap = new GAP();
-                    status = gap.init(this);
+                    status = gap.init(this, bleAdapter);
                 }
                 break;
             case BTP_SERVICE_ID_GATT:
