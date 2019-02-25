@@ -78,16 +78,16 @@ public class BTTester {
 
     public static class GapReadControllerInfo {
         byte[] address;
-        int supportedSettings;
-        int currentSettings;
+        byte[] supportedSettings;
+        byte[] currentSettings;
         byte[] cod;
         byte[] name;
         byte[] shortName;
 
         public GapReadControllerInfo() {
             this.address = new byte[6];
-            this.supportedSettings = 0;
-            this.currentSettings = 0;
+            this.supportedSettings = new byte[4];
+            this.currentSettings = new byte[4];
             this.cod = new byte[3];
             this.name = new byte[249];
             this.shortName = new byte[11];
@@ -98,8 +98,8 @@ public class BTTester {
             buf.order(ByteOrder.LITTLE_ENDIAN);
 
             buf.put(address);
-            buf.putInt(supportedSettings);
-            buf.putInt(currentSettings);
+            buf.put(supportedSettings);
+            buf.put(currentSettings);
             buf.put(cod);
             buf.put(name);
             buf.put(shortName);
