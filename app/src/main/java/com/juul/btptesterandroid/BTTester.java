@@ -187,7 +187,7 @@ public class BTTester {
         supported = Utils.setBit(supported, CORE_UNREGISTER_SERVICE);
 
         sendMessage(BTP_SERVICE_ID_CORE, CORE_READ_SUPPORTED_COMMANDS, BTP_INDEX_NONE,
-                new byte[] { supported });
+                new byte[]{supported});
     }
 
     public void supportedServices(ByteBuffer data) throws Exception {
@@ -198,7 +198,7 @@ public class BTTester {
         supported = Utils.setBit(supported, BTP_SERVICE_ID_GATT);
 
         sendMessage(BTP_SERVICE_ID_CORE, CORE_READ_SUPPORTED_SERVICES, BTP_INDEX_NONE,
-                new byte[] { supported });
+                new byte[]{supported});
     }
 
     public void registerService(ByteBuffer data) throws Exception {
