@@ -10,6 +10,7 @@ import com.neovisionaries.ws.client.WebSocketFrame;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +76,38 @@ public class BTTester {
 
     public static final byte GAP_READ_CONTROLLER_INFO = 0x03;
 
+    public static class GapReadControllerInfo {
+        byte[] address;
+        int supportedSettings;
+        int currentSettings;
+        byte[] cod;
+        byte[] name;
+        byte[] shortName;
+
+        public GapReadControllerInfo() {
+            this.address = new byte[6];
+            this.supportedSettings = 0;
+            this.currentSettings = 0;
+            this.cod = new byte[3];
+            this.name = new byte[249];
+            this.shortName = new byte[11];
+        }
+
+        byte[] toBytes() {
+            ByteBuffer buf = ByteBuffer.allocate(6 + 4 + 4 + 3 + 249 + 11);
+            buf.order(ByteOrder.LITTLE_ENDIAN);
+
+            buf.put(address);
+            buf.putInt(supportedSettings);
+            buf.putInt(currentSettings);
+            buf.put(cod);
+            buf.put(name);
+            buf.put(shortName);
+
+            return buf.array();
+        }
+    }
+
 
     public void init() {
         // Create a WebSocket factory and set 5000 milliseconds as a timeout
@@ -132,7 +165,6 @@ public class BTTester {
         @Override
         public void onBinaryMessage(WebSocket websocket, byte[] binary) {
             Log.d("TAG", "onBinaryMessage");
-            Log.d("TAG", Arrays.toString(binary));
             try {
                 messageHandler(binary);
             } catch (Exception e) {
@@ -179,7 +211,7 @@ public class BTTester {
                     status = BTP_STATUS_FAILED;
                 } else {
                     gap = new GAP();
-                    status = gap.init();
+                    status = gap.init(this);
                 }
                 break;
             case BTP_SERVICE_ID_GATT:
@@ -243,6 +275,7 @@ public class BTTester {
     }
 
     public void messageHandler(byte[] bytes) throws Exception {
+        Log.d("TAG", String.format("messageHandler %s", Arrays.toString(bytes)));
         BTPMessage msg = new BTPMessage(bytes);
 
         switch (msg.service) {
@@ -250,6 +283,7 @@ public class BTTester {
                 handleCore(msg.opcode, msg.index, msg.data);
                 break;
             case BTP_SERVICE_ID_GAP:
+                gap.handleGAP(msg.opcode, msg.index, msg.data);
                 break;
             case BTP_SERVICE_ID_GATT:
                 break;
@@ -259,20 +293,18 @@ public class BTTester {
     }
 
     public void sendMessage(byte service, byte opcode, byte index, byte[] data) throws Exception {
-        Log.d("TAG", "sendMessage");
+        Log.d("TAG", String.format("sendMessage 0x%02x 0x%02x 0x%02x %s",
+                service, opcode, index, Arrays.toString(data)));
         if (!ws.isOpen()) {
             throw new Exception("WebSocket is closed");
         }
 
         BTPMessage message = new BTPMessage(service, opcode, index, data);
         byte[] bytes = message.toByteArray();
-        Log.d("TAG", Arrays.toString(bytes));
         ws.sendBinary(bytes);
     }
 
     public void response(byte service, byte opcode, byte index, byte status) throws Exception {
-        Log.d("TAG", "response");
-
         if (status == BTP_STATUS_SUCCESS) {
             sendMessage(service, opcode, index, null);
             return;
