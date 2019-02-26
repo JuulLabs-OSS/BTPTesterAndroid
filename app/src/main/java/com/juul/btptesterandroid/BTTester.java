@@ -285,9 +285,14 @@ public class BTTester {
         }
     }
 
-    public void messageHandler(byte[] bytes) throws Exception {
-        Log.d("TAG", String.format("messageHandler %s", Arrays.toString(bytes)));
-        BTPMessage msg = new BTPMessage(bytes);
+    public void messageHandler(byte[] bytes) {
+        Log.d("TAG", String.format("messageHandler %s", Utils.bytesToHex(bytes)));
+        BTPMessage msg = BTPMessage.parse(bytes);
+
+        if (msg == null) {
+            /* Ignore wrongly formatted message */
+            return;
+        }
 
         switch (msg.service) {
             case BTP_SERVICE_ID_CORE:

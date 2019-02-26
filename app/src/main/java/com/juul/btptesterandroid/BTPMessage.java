@@ -22,11 +22,7 @@ public class BTPMessage {
         }
     }
 
-    public BTPMessage(byte[] bytes) throws Exception {
-        if (bytes.length < HDR_LEN) {
-            throw new Exception("BTPMessage to short");
-        }
-
+    private BTPMessage(byte[] bytes) {
         ByteBuffer bb = ByteBuffer.wrap(bytes);
 
         bb.order(ByteOrder.LITTLE_ENDIAN);
@@ -37,6 +33,14 @@ public class BTPMessage {
         if (len > 0) {
             data = ByteBuffer.wrap(bytes, 5, len);
         }
+    }
+
+    public static BTPMessage parse(byte[] bytes) {
+        if (bytes.length < HDR_LEN) {
+            return null;
+        }
+
+        return new BTPMessage(bytes);
     }
 
     byte[] toByteArray() {
