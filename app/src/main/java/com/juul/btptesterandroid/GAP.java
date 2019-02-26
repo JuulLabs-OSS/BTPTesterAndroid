@@ -1,15 +1,23 @@
 package com.juul.btptesterandroid;
 
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.util.Log;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+
+import androidx.annotation.NonNull;
+import no.nordicsemi.android.ble.BleManagerCallbacks;
+import no.nordicsemi.android.ble.ConnectRequest;
 
 import static com.juul.btptesterandroid.BTTester.BTP_INDEX_NONE;
 import static com.juul.btptesterandroid.BTTester.BTP_SERVICE_ID_GAP;
 import static com.juul.btptesterandroid.BTTester.BTP_STATUS_FAILED;
 import static com.juul.btptesterandroid.BTTester.BTP_STATUS_SUCCESS;
 import static com.juul.btptesterandroid.BTTester.BTP_STATUS_UNKNOWN_CMD;
+import static com.juul.btptesterandroid.BTTester.GAP_CONNECT;
+import static com.juul.btptesterandroid.BTTester.GAP_EV_DEVICE_CONNECTED;
 import static com.juul.btptesterandroid.BTTester.GAP_READ_CONTROLLER_INDEX_LIST;
 import static com.juul.btptesterandroid.BTTester.GAP_READ_CONTROLLER_INFO;
 import static com.juul.btptesterandroid.BTTester.GAP_READ_SUPPORTED_COMMANDS;
@@ -21,15 +29,16 @@ import static com.juul.btptesterandroid.BTTester.GAP_SETTINGS_POWERED;
 import static com.juul.btptesterandroid.BTTester.GAP_SETTINGS_STATIC_ADDRESS;
 import static com.juul.btptesterandroid.Utils.setBit;
 
-public class GAP {
+public class GAP implements BleManagerCallbacks {
 
     private BTTester tester = null;
     private BluetoothAdapter bleAdapter = null;
+    private BTPBleManager bleManager = null;
     private static final byte CONTROLLER_INDEX = 0;
     private byte[] supportedSettings = new byte[4];
     private byte[] currentSettings = new byte[4];
 
-    public void supportedCommands(ByteBuffer data) throws Exception {
+    public void supportedCommands(ByteBuffer data) {
         byte[] cmds = new byte[3];
 
         setBit(cmds, GAP_READ_SUPPORTED_COMMANDS);
@@ -40,7 +49,7 @@ public class GAP {
                 cmds);
     }
 
-    public void controllerIndexList(ByteBuffer data) throws Exception {
+    public void controllerIndexList(ByteBuffer data) {
         ByteBuffer rp = ByteBuffer.allocate(2);
         rp.order(ByteOrder.LITTLE_ENDIAN);
         int len = 1;
@@ -52,8 +61,8 @@ public class GAP {
                 CONTROLLER_INDEX, rp.array());
     }
 
-    public void controllerInfo(ByteBuffer data) throws Exception {
-        BTTester.GapReadControllerInfo rp = new BTTester.GapReadControllerInfo();
+    public void controllerInfo(ByteBuffer data) {
+        BTTester.GapReadControllerInfoRp rp = new BTTester.GapReadControllerInfoRp();
 
         byte[] addr = bleAdapter.getAddress().getBytes();
         System.arraycopy(addr, 0, rp.address, 0, rp.address.length);
@@ -82,7 +91,95 @@ public class GAP {
                 CONTROLLER_INDEX, rp.toBytes());
     }
 
-    public void handleGAP(byte opcode, byte index, ByteBuffer data) throws Exception {
+    public void connect(ByteBuffer data) {
+        BTTester.GapConnectCmd cmd = BTTester.GapConnectCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GAP, GAP_CONNECT, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        Log.d("GAP", String.format("connect %d %s", cmd.addressType,
+                Utils.bytesToHex(cmd.address)));
+
+        BluetoothDevice device = bleAdapter.getRemoteDevice(cmd.address);
+
+        ConnectRequest req = bleManager.connect(device);
+        req.enqueue();
+
+        tester.response(BTP_SERVICE_ID_GAP, GAP_CONNECT,
+                CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
+    }
+
+    @Override
+    public void onDeviceConnecting(@NonNull BluetoothDevice device) {
+
+    }
+
+    @Override
+    public void onDeviceConnected(@NonNull BluetoothDevice device) {
+        BTTester.GapDeviceConnectedEv ev = new BTTester.GapDeviceConnectedEv();
+
+        ev.addressType = 0x01; /* random */
+        byte[] addr = device.getAddress().getBytes();
+        System.arraycopy(addr, 0, ev.address, 0, ev.address.length);
+
+        tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_EV_DEVICE_CONNECTED,
+                CONTROLLER_INDEX, ev.toBytes());
+    }
+
+    @Override
+    public void onDeviceDisconnecting(@NonNull BluetoothDevice device) {
+
+    }
+
+    @Override
+    public void onDeviceDisconnected(@NonNull BluetoothDevice device) {
+
+    }
+
+    @Override
+    public void onLinkLossOccurred(@NonNull BluetoothDevice device) {
+
+    }
+
+    @Override
+    public void onServicesDiscovered(@NonNull BluetoothDevice device,
+                                     boolean optionalServicesFound) {
+
+    }
+
+    @Override
+    public void onDeviceReady(@NonNull BluetoothDevice device) {
+
+    }
+
+    @Override
+    public void onBondingRequired(@NonNull BluetoothDevice device) {
+
+    }
+
+    @Override
+    public void onBonded(@NonNull BluetoothDevice device) {
+
+    }
+
+    @Override
+    public void onBondingFailed(@NonNull BluetoothDevice device) {
+
+    }
+
+    @Override
+    public void onError(@NonNull BluetoothDevice device, @NonNull String message, int errorCode) {
+
+    }
+
+    @Override
+    public void onDeviceNotSupported(@NonNull BluetoothDevice device) {
+
+    }
+
+
+    public void handleGAP(byte opcode, byte index, ByteBuffer data) {
         switch(opcode) {
             case GAP_READ_SUPPORTED_COMMANDS:
             case GAP_READ_CONTROLLER_INDEX_LIST:
@@ -109,15 +206,20 @@ public class GAP {
             case GAP_READ_CONTROLLER_INFO:
                 controllerInfo(data);
                 break;
+            case GAP_CONNECT:
+                connect(data);
+                break;
             default:
                 tester.response(BTP_SERVICE_ID_GAP, opcode, index, BTP_STATUS_UNKNOWN_CMD);
                 break;
         }
     }
 
-    public byte init(BTTester tester, BluetoothAdapter bleAdapter) {
+    public byte init(BTTester tester, BluetoothAdapter bleAdapter, BTPBleManager bleManager) {
         this.tester = tester;
         this.bleAdapter = bleAdapter;
+        this.bleManager = bleManager;
+        this.bleManager.setGattCallbacks(this);
         return BTP_STATUS_SUCCESS;
     }
 

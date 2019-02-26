@@ -13,8 +13,6 @@ import com.neovisionaries.ws.client.WebSocketFrame;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +26,7 @@ public class BTTester {
     private Context context;
     private BluetoothAdapter bleAdapter;
     private BluetoothManager bleManager;
+    private BTPBleManager btpBleManager;
     private WebSocket ws = null;
 
     private GAP gap = null;
@@ -81,8 +80,7 @@ public class BTTester {
     public static final byte GAP_SETTINGS_STATIC_ADDRESS = 15;
 
     public static final byte GAP_READ_CONTROLLER_INFO = 0x03;
-
-    public static class GapReadControllerInfo {
+    public static class GapReadControllerInfoRp {
         byte[] address;
         byte[] supportedSettings;
         byte[] currentSettings;
@@ -90,7 +88,7 @@ public class BTTester {
         byte[] name;
         byte[] shortName;
 
-        public GapReadControllerInfo() {
+        public GapReadControllerInfoRp() {
             this.address = new byte[6];
             this.supportedSettings = new byte[4];
             this.currentSettings = new byte[4];
@@ -101,7 +99,6 @@ public class BTTester {
 
         byte[] toBytes() {
             ByteBuffer buf = ByteBuffer.allocate(6 + 4 + 4 + 3 + 249 + 11);
-            buf.order(ByteOrder.LITTLE_ENDIAN);
 
             buf.put(address);
             buf.put(supportedSettings);
@@ -114,10 +111,56 @@ public class BTTester {
         }
     }
 
+    public static final byte GAP_CONNECT = 0x0e;
+    public static class GapConnectCmd {
+        byte addressType;
+        byte[] address;
+
+        private GapConnectCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+        }
+
+        public static GapConnectCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 7) {
+                return null;
+            }
+
+            return new GapConnectCmd(byteBuffer);
+        }
+    }
+
+    public static final byte GAP_EV_DEVICE_CONNECTED = (byte) 0x82;
+    public static class GapDeviceConnectedEv {
+        byte addressType;
+        byte[] address;
+
+        public GapDeviceConnectedEv() {
+            addressType = 0;
+            address = new byte[6];
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(6 + 1);
+
+            byteBuffer.put(addressType);
+            byteBuffer.put(address);
+
+            return byteBuffer.array();
+        }
+    }
+
+
+    /*****************************************************************************************/
+
     public BTTester(Context context, BluetoothAdapter bleAdapter, BluetoothManager bleManager) {
         this.context = context;
         this.bleAdapter = bleAdapter;
         this.bleManager = bleManager;
+        this.btpBleManager = new BTPBleManager(this.context);
     }
 
     public void init() {
@@ -189,7 +232,7 @@ public class BTTester {
         }
     };
 
-    public void supportedCommands(ByteBuffer data) throws Exception {
+    public void supportedCommands(ByteBuffer data) {
         byte supported = 0;
 
         supported = Utils.setBit(supported, CORE_READ_SUPPORTED_COMMANDS);
@@ -201,7 +244,7 @@ public class BTTester {
                 new byte[]{supported});
     }
 
-    public void supportedServices(ByteBuffer data) throws Exception {
+    public void supportedServices(ByteBuffer data) {
         byte supported = 0;
 
         supported = Utils.setBit(supported, BTP_SERVICE_ID_CORE);
@@ -212,7 +255,7 @@ public class BTTester {
                 new byte[]{supported});
     }
 
-    public void registerService(ByteBuffer data) throws Exception {
+    public void registerService(ByteBuffer data) {
         byte id = data.get();
         byte status;
 
@@ -222,11 +265,11 @@ public class BTTester {
                     status = BTP_STATUS_FAILED;
                 } else {
                     gap = new GAP();
-                    status = gap.init(this, bleAdapter);
+                    status = gap.init(this, bleAdapter, btpBleManager);
                 }
                 break;
             case BTP_SERVICE_ID_GATT:
-                status = BTP_STATUS_FAILED;
+                status = BTP_STATUS_SUCCESS;
                 break;
             default:
                 status = BTP_STATUS_FAILED;
@@ -236,7 +279,7 @@ public class BTTester {
         response(BTP_SERVICE_ID_CORE, CORE_REGISTER_SERVICE, BTP_INDEX_NONE, status);
     }
 
-    public void unregisterService(ByteBuffer data) throws Exception {
+    public void unregisterService(ByteBuffer data) {
         byte id = data.get();
         byte status;
 
@@ -260,7 +303,7 @@ public class BTTester {
         response(BTP_SERVICE_ID_CORE, CORE_UNREGISTER_SERVICE, BTP_INDEX_NONE, status);
     }
 
-    public void handleCore(byte opcode, byte index, ByteBuffer data) throws Exception {
+    public void handleCore(byte opcode, byte index, ByteBuffer data) {
         if (index != BTP_INDEX_NONE) {
             response(BTP_SERVICE_ID_CORE, opcode, index, BTP_STATUS_FAILED);
             return;
@@ -308,11 +351,15 @@ public class BTTester {
         }
     }
 
-    public void sendMessage(byte service, byte opcode, byte index, byte[] data) throws Exception {
+    public void sendMessage(byte service, byte opcode, byte index, byte[] data) {
         Log.d("TAG", String.format("sendMessage 0x%02x 0x%02x 0x%02x %s",
-                service, opcode, index, Arrays.toString(data)));
+                service, opcode, index, Utils.bytesToHex(data)));
         if (!ws.isOpen()) {
-            throw new Exception("WebSocket is closed");
+            try {
+                throw new Exception("WebSocket is closed");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
 
         BTPMessage message = new BTPMessage(service, opcode, index, data);
@@ -320,7 +367,7 @@ public class BTTester {
         ws.sendBinary(bytes);
     }
 
-    public void response(byte service, byte opcode, byte index, byte status) throws Exception {
+    public void response(byte service, byte opcode, byte index, byte status) {
         if (status == BTP_STATUS_SUCCESS) {
             sendMessage(service, opcode, index, null);
             return;
