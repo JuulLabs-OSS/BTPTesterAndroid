@@ -31,5 +31,6 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
     implementation "org.java-websocket:Java-WebSocket:1.4.0"
     implementation 'no.nordicsemi.android:ble:2.1.0'
+    implementation 'no.nordicsemi.android.support.v18:scanner:1.4.0'
 }
 

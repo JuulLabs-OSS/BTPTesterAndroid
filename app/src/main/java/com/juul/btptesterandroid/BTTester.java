@@ -245,7 +245,7 @@ public class BTTester {
 
     public void cleanup() {
         if (gap != null) {
-//            gap.cleanup();
+            gap.cleanup();
             gap = null;
         }
 
@@ -258,6 +258,7 @@ public class BTTester {
     public void close() {
         if (wsServer != null) {
             try {
+                cleanup();
                 wsServer.stop();
             } catch (IOException e) {
                 e.printStackTrace();

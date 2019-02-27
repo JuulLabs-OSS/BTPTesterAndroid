@@ -2,14 +2,24 @@ package com.juul.btptesterandroid;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.os.ParcelUuid;
 import android.util.Log;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 
 import androidx.annotation.NonNull;
 import no.nordicsemi.android.ble.BleManagerCallbacks;
 import no.nordicsemi.android.ble.ConnectRequest;
+import no.nordicsemi.android.ble.exception.BluetoothDisabledException;
+import no.nordicsemi.android.ble.exception.DeviceDisconnectedException;
+import no.nordicsemi.android.ble.exception.InvalidRequestException;
+import no.nordicsemi.android.ble.exception.RequestFailedException;
+import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat;
+import no.nordicsemi.android.support.v18.scanner.ScanFilter;
+import no.nordicsemi.android.support.v18.scanner.ScanSettings;
 
 import static com.juul.btptesterandroid.BTP.BTP_INDEX_NONE;
 import static com.juul.btptesterandroid.BTP.BTP_SERVICE_ID_GAP;
@@ -37,6 +47,7 @@ public class GAP implements BleManagerCallbacks {
     private static final byte CONTROLLER_INDEX = 0;
     private byte[] supportedSettings = new byte[4];
     private byte[] currentSettings = new byte[4];
+    private static final int SCAN_TIMEOUT = 1000;
 
     public void supportedCommands(ByteBuffer data) {
         byte[] cmds = new byte[3];
@@ -91,6 +102,8 @@ public class GAP implements BleManagerCallbacks {
                 CONTROLLER_INDEX, rp.toBytes());
     }
 
+    private static final String BTP_TESTER_UUID = "0000CDAB-0000-1000-8000-00805F9B34FB";
+
     public void connect(ByteBuffer data) {
         BTP.GapConnectCmd cmd = BTP.GapConnectCmd.parse(data);
         if (cmd == null) {
@@ -101,7 +114,38 @@ public class GAP implements BleManagerCallbacks {
         Log.d("GAP", String.format("connect %d %s", cmd.addressType,
                 Utils.bytesToHex(cmd.address)));
 
-        BluetoothDevice device = bleAdapter.getRemoteDevice(cmd.address);
+        BluetoothLeScannerCompat scanner = BluetoothLeScannerCompat.getScanner();
+        ScanSettings settings = new ScanSettings.Builder()
+                .setLegacy(false)
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .setUseHardwareBatchingIfSupported(true)
+                .build();
+        List<ScanFilter> filters = new ArrayList<>();
+        filters.add(new ScanFilter.Builder().setServiceUuid(ParcelUuid.fromString(BTP_TESTER_UUID)).build());
+        String addr = Utils.bytesToHex(cmd.address).replaceAll("..(?!$)", "$0:");
+
+        ScanConnectCallback scanCallback = new ScanConnectCallback();
+        scanner.startScan(filters, settings, scanCallback);
+
+        try {
+            Thread.sleep(SCAN_TIMEOUT);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        scanner.stopScan(scanCallback);
+
+        if (scanCallback.getErrorCode() != 0) {
+            tester.response(BTP_SERVICE_ID_GAP, GAP_CONNECT, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+
+        BluetoothDevice device = scanCallback.findDiscoveredDevice(addr);
+        if (device == null) {
+            tester.response(BTP_SERVICE_ID_GAP, GAP_CONNECT, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
 
         ConnectRequest req = bleManager.connect(device);
         req.enqueue();
@@ -221,6 +265,24 @@ public class GAP implements BleManagerCallbacks {
         this.bleManager = bleManager;
         this.bleManager.setGattCallbacks(this);
         return BTP_STATUS_SUCCESS;
+    }
+
+    public void cleanup() {
+        if (this.bleManager.isConnected()) {
+            try {
+                this.bleManager.disconnect().await();
+            } catch (RequestFailedException e) {
+                e.printStackTrace();
+            } catch (DeviceDisconnectedException e) {
+                e.printStackTrace();
+            } catch (BluetoothDisabledException e) {
+                e.printStackTrace();
+            } catch (InvalidRequestException e) {
+                e.printStackTrace();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     public byte unregister() {
