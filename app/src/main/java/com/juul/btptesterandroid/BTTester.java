@@ -5,29 +5,24 @@ import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.util.Log;
 
-import com.neovisionaries.ws.client.WebSocket;
-import com.neovisionaries.ws.client.WebSocketAdapter;
-import com.neovisionaries.ws.client.WebSocketException;
-import com.neovisionaries.ws.client.WebSocketFactory;
-import com.neovisionaries.ws.client.WebSocketFrame;
+import org.java_websocket.WebSocket;
+import org.java_websocket.handshake.ClientHandshake;
+import org.java_websocket.server.WebSocketServer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
-import java.util.Map;
-
-import static java.lang.Thread.sleep;
+import java.util.Arrays;
 
 public class BTTester {
-    private static final String SERVER = "ws://192.168.9.111:8765";
-    private static final int TIMEOUT = 5000;
-    private static final int RECONNECT_TIMEOUT = 3000;
+    private static final int PORT = 8765;
+    private WebSocketServer wsServer = null;
+    private WebSocketServerAdapter wsAdapter = null;
+    private WebSocket socket = null;
 
     private Context context;
     private BluetoothAdapter bleAdapter;
     private BluetoothManager bleManager;
     private BTPBleManager btpBleManager;
-    private WebSocket ws = null;
 
     private GAP gap = null;
 
@@ -80,6 +75,7 @@ public class BTTester {
     public static final byte GAP_SETTINGS_STATIC_ADDRESS = 15;
 
     public static final byte GAP_READ_CONTROLLER_INFO = 0x03;
+
     public static class GapReadControllerInfoRp {
         byte[] address;
         byte[] supportedSettings;
@@ -112,6 +108,7 @@ public class BTTester {
     }
 
     public static final byte GAP_CONNECT = 0x0e;
+
     public static class GapConnectCmd {
         byte addressType;
         byte[] address;
@@ -134,6 +131,7 @@ public class BTTester {
     }
 
     public static final byte GAP_EV_DEVICE_CONNECTED = (byte) 0x82;
+
     public static class GapDeviceConnectedEv {
         byte addressType;
         byte[] address;
@@ -164,77 +162,60 @@ public class BTTester {
     }
 
     public void init() {
-        // Create a WebSocket factory and set 5000 milliseconds as a timeout
-        // value for socket connection.
-        WebSocketFactory factory = new WebSocketFactory().setConnectionTimeout(TIMEOUT);
-
-        // Create a WebSocket. The timeout value set above is used.
-        try {
-            ws = factory.createSocket(SERVER);
-
-            ws.addListener(adapter);
-
-            ws.connectAsynchronously();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        wsServer = new BTPWebSockerServer(PORT, adapter);
+        wsServer.start();
     }
 
-    private void tryReconnect() {
-        try {
-            sleep(RECONNECT_TIMEOUT);
-            ws = ws.recreate().connectAsynchronously();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private WebSocketAdapter adapter = new WebSocketAdapter() {
+    private WebSocketServerAdapter adapter = new WebSocketServerAdapter() {
         @Override
-        public void onConnected(WebSocket websocket, Map<String, List<String>> headers) {
-            Log.d("TAG", "onConnected");
-            try {
+        public void onOpen(WebSocket conn, ClientHandshake handshake) {
+            Log.d("TAG", "onOpen");
+            if (socket == null) {
+                socket = conn;
                 sendMessage(BTP_SERVICE_ID_CORE, CORE_EV_IUT_READY, BTP_INDEX_NONE, null);
-            } catch (Exception e) {
-                e.printStackTrace();
             }
         }
 
         @Override
-        public void onConnectError(WebSocket websocket, WebSocketException exception) {
-            Log.d("TAG", "onConnectError");
-            tryReconnect();
-        }
-
-        @Override
-        public void onDisconnected(WebSocket websocket, WebSocketFrame serverCloseFrame,
-                                   WebSocketFrame clientCloseFrame, boolean closedByServer) {
-            Log.d("TAG", "onDisconnected");
-            cleanup();
-            tryReconnect();
-        }
-
-        @Override
-        public void onBinaryMessage(WebSocket websocket, byte[] binary) {
-            Log.d("TAG", "onBinaryMessage");
-            try {
-                messageHandler(binary);
-            } catch (Exception e) {
-                e.printStackTrace();
+        public void onClose(WebSocket conn, int code, String reason, boolean remote) {
+            Log.d("TAG", "onClose");
+            if (socket == conn) {
+                cleanup();
             }
         }
 
         @Override
-        public void onUnexpectedError(WebSocket websocket, WebSocketException cause) {
-            Log.d("TAG", "onUnexpectedError");
+        public void onMessage(WebSocket conn, String message) {
+            Log.d("TAG", "onStringMessage");
+        }
+
+        @Override
+        public void onMessage(WebSocket conn, ByteBuffer message) {
+            Log.d("TAG", "onByteBufferMessage");
+            if (socket == conn) {
+                messageHandler(message.array());
+            }
+        }
+
+        @Override
+        public void onError(WebSocket conn, Exception ex) {
+            Log.d("TAG", "onError");
+            Log.d("TAG", ex.getMessage());
+            Log.d("TAG", Arrays.toString(ex.getStackTrace()));
+            // some errors like port binding failed may not be assignable to a specific websocket
+            if (conn == null) {
+                socket = null;
+            }
+        }
+
+        @Override
+        public void onStart() {
+            Log.d("TAG", "onStart");
         }
     };
 
     public void supportedCommands(ByteBuffer data) {
         byte supported = 0;
-
         supported = Utils.setBit(supported, CORE_READ_SUPPORTED_COMMANDS);
         supported = Utils.setBit(supported, CORE_READ_SUPPORTED_SERVICES);
         supported = Utils.setBit(supported, CORE_REGISTER_SERVICE);
@@ -354,7 +335,7 @@ public class BTTester {
     public void sendMessage(byte service, byte opcode, byte index, byte[] data) {
         Log.d("TAG", String.format("sendMessage 0x%02x 0x%02x 0x%02x %s",
                 service, opcode, index, Utils.bytesToHex(data)));
-        if (!ws.isOpen()) {
+        if (!socket.isOpen()) {
             try {
                 throw new Exception("WebSocket is closed");
             } catch (Exception e) {
@@ -364,7 +345,7 @@ public class BTTester {
 
         BTPMessage message = new BTPMessage(service, opcode, index, data);
         byte[] bytes = message.toByteArray();
-        ws.sendBinary(bytes);
+        socket.send(bytes);
     }
 
     public void response(byte service, byte opcode, byte index, byte status) {
@@ -377,13 +358,27 @@ public class BTTester {
     }
 
     public void cleanup() {
-        gap = null;
+        if (gap != null) {
+//            gap.cleanup();
+            gap = null;
+        }
+
+        if (socket != null) {
+            socket.close();
+            socket = null;
+        }
     }
 
     public void close() {
-        if (ws != null) {
-            ws.disconnect();
-            ws = null;
+        if (wsServer != null) {
+            try {
+                wsServer.stop();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            wsServer = null;
         }
     }
 
