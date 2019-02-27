@@ -3,7 +3,7 @@ package com.juul.btptesterandroid;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-import static com.juul.btptesterandroid.BTTester.HDR_LEN;
+import static com.juul.btptesterandroid.BTP.HDR_LEN;
 
 public class BTPMessage {
     byte service;

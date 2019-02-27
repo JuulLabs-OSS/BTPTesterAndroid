@@ -11,22 +11,22 @@ import androidx.annotation.NonNull;
 import no.nordicsemi.android.ble.BleManagerCallbacks;
 import no.nordicsemi.android.ble.ConnectRequest;
 
-import static com.juul.btptesterandroid.BTTester.BTP_INDEX_NONE;
-import static com.juul.btptesterandroid.BTTester.BTP_SERVICE_ID_GAP;
-import static com.juul.btptesterandroid.BTTester.BTP_STATUS_FAILED;
-import static com.juul.btptesterandroid.BTTester.BTP_STATUS_SUCCESS;
-import static com.juul.btptesterandroid.BTTester.BTP_STATUS_UNKNOWN_CMD;
-import static com.juul.btptesterandroid.BTTester.GAP_CONNECT;
-import static com.juul.btptesterandroid.BTTester.GAP_EV_DEVICE_CONNECTED;
-import static com.juul.btptesterandroid.BTTester.GAP_READ_CONTROLLER_INDEX_LIST;
-import static com.juul.btptesterandroid.BTTester.GAP_READ_CONTROLLER_INFO;
-import static com.juul.btptesterandroid.BTTester.GAP_READ_SUPPORTED_COMMANDS;
-import static com.juul.btptesterandroid.BTTester.GAP_SETTINGS_ADVERTISING;
-import static com.juul.btptesterandroid.BTTester.GAP_SETTINGS_BONDABLE;
-import static com.juul.btptesterandroid.BTTester.GAP_SETTINGS_CONNECTABLE;
-import static com.juul.btptesterandroid.BTTester.GAP_SETTINGS_LE;
-import static com.juul.btptesterandroid.BTTester.GAP_SETTINGS_POWERED;
-import static com.juul.btptesterandroid.BTTester.GAP_SETTINGS_STATIC_ADDRESS;
+import static com.juul.btptesterandroid.BTP.BTP_INDEX_NONE;
+import static com.juul.btptesterandroid.BTP.BTP_SERVICE_ID_GAP;
+import static com.juul.btptesterandroid.BTP.BTP_STATUS_FAILED;
+import static com.juul.btptesterandroid.BTP.BTP_STATUS_SUCCESS;
+import static com.juul.btptesterandroid.BTP.BTP_STATUS_UNKNOWN_CMD;
+import static com.juul.btptesterandroid.BTP.GAP_CONNECT;
+import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_CONNECTED;
+import static com.juul.btptesterandroid.BTP.GAP_READ_CONTROLLER_INDEX_LIST;
+import static com.juul.btptesterandroid.BTP.GAP_READ_CONTROLLER_INFO;
+import static com.juul.btptesterandroid.BTP.GAP_READ_SUPPORTED_COMMANDS;
+import static com.juul.btptesterandroid.BTP.GAP_SETTINGS_ADVERTISING;
+import static com.juul.btptesterandroid.BTP.GAP_SETTINGS_BONDABLE;
+import static com.juul.btptesterandroid.BTP.GAP_SETTINGS_CONNECTABLE;
+import static com.juul.btptesterandroid.BTP.GAP_SETTINGS_LE;
+import static com.juul.btptesterandroid.BTP.GAP_SETTINGS_POWERED;
+import static com.juul.btptesterandroid.BTP.GAP_SETTINGS_STATIC_ADDRESS;
 import static com.juul.btptesterandroid.Utils.setBit;
 
 public class GAP implements BleManagerCallbacks {
@@ -62,7 +62,7 @@ public class GAP implements BleManagerCallbacks {
     }
 
     public void controllerInfo(ByteBuffer data) {
-        BTTester.GapReadControllerInfoRp rp = new BTTester.GapReadControllerInfoRp();
+        BTP.GapReadControllerInfoRp rp = new BTP.GapReadControllerInfoRp();
 
         byte[] addr = bleAdapter.getAddress().getBytes();
         System.arraycopy(addr, 0, rp.address, 0, rp.address.length);
@@ -92,7 +92,7 @@ public class GAP implements BleManagerCallbacks {
     }
 
     public void connect(ByteBuffer data) {
-        BTTester.GapConnectCmd cmd = BTTester.GapConnectCmd.parse(data);
+        BTP.GapConnectCmd cmd = BTP.GapConnectCmd.parse(data);
         if (cmd == null) {
             tester.response(BTP_SERVICE_ID_GAP, GAP_CONNECT, CONTROLLER_INDEX,
                     BTP_STATUS_FAILED);
@@ -117,7 +117,7 @@ public class GAP implements BleManagerCallbacks {
 
     @Override
     public void onDeviceConnected(@NonNull BluetoothDevice device) {
-        BTTester.GapDeviceConnectedEv ev = new BTTester.GapDeviceConnectedEv();
+        BTP.GapDeviceConnectedEv ev = new BTP.GapDeviceConnectedEv();
 
         ev.addressType = 0x01; /* random */
         byte[] addr = device.getAddress().getBytes();
