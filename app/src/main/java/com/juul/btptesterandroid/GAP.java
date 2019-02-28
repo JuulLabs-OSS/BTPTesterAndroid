@@ -301,6 +301,14 @@ public class GAP implements BleManagerCallbacks {
         scanCallback.clearCache();
         scanner.startScan(filters, settings, scanCallback);
 
+        if (scanCallback.getErrorCode() != 0) {
+            Log.d("GAP", String.format("Connect: scanCallback error %d",
+                    scanCallback.getErrorCode()));
+            tester.response(BTP_SERVICE_ID_GAP, GAP_CONNECT, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+
         try {
             Thread.sleep(SCAN_TIMEOUT);
         } catch (InterruptedException e) {
@@ -309,6 +317,8 @@ public class GAP implements BleManagerCallbacks {
         scanner.stopScan(scanCallback);
 
         if (scanCallback.getErrorCode() != 0) {
+            Log.d("GAP", String.format("Connect: scanCallback error %d",
+                    scanCallback.getErrorCode()));
             tester.response(BTP_SERVICE_ID_GAP, GAP_CONNECT, CONTROLLER_INDEX,
                     BTP_STATUS_FAILED);
             return;
@@ -316,6 +326,7 @@ public class GAP implements BleManagerCallbacks {
 
         BluetoothDevice device = scanCallback.findDiscoveredDevice(addr);
         if (device == null) {
+            Log.d("GAP", "Connect: device not found");
             tester.response(BTP_SERVICE_ID_GAP, GAP_CONNECT, CONTROLLER_INDEX,
                     BTP_STATUS_FAILED);
             return;
