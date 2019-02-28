@@ -84,6 +84,117 @@ public final class BTP {
             return buf.array();
         }
     }
+
+    public static final byte GAP_SET_CONNECTABLE = 0x06;
+    public static class GapSetConnectableCmd {
+        byte connectable = 0;
+
+        private GapSetConnectableCmd(ByteBuffer byteBuffer) {
+            connectable = byteBuffer.get();
+        }
+
+        public static GapSetConnectableCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 1) {
+                return null;
+            }
+
+            return new GapSetConnectableCmd(byteBuffer);
+        }
+    }
+
+    public static class GapSetConnectableRp {
+        byte[] currentSettings;
+
+        public GapSetConnectableRp() {
+            this.currentSettings = new byte[4];
+        }
+
+        byte[] toBytes() {
+            ByteBuffer buf = ByteBuffer.allocate(4);
+            buf.put(currentSettings);
+            return buf.array();
+        }
+    }
+
+    public static final byte GAP_NON_DISCOVERABLE = 0x00;
+    public static final byte GAP_GENERAL_DISCOVERABLE = 0x01;
+    public static final byte GAP_LIMITED_DISCOVERABLE = 0x02;
+
+    public static final byte GAP_SET_DISCOVERABLE = 0x08;
+    public static class GapSetDiscoverableCmd {
+        byte discoverable = 0;
+
+        private GapSetDiscoverableCmd(ByteBuffer byteBuffer) {
+            discoverable = byteBuffer.get();
+        }
+
+        public static GapSetDiscoverableCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 1) {
+                return null;
+            }
+
+            return new GapSetDiscoverableCmd(byteBuffer);
+        }
+    }
+
+    public static class GapSetDiscoverableRp {
+        byte[] currentSettings;
+
+        public GapSetDiscoverableRp() {
+            this.currentSettings = new byte[4];
+        }
+
+        byte[] toBytes() {
+            ByteBuffer buf = ByteBuffer.allocate(4);
+            buf.put(currentSettings);
+            return buf.array();
+        }
+    }
+
+    public static final byte GAP_START_ADVERTISING = 0x0a;
+    public static class GapStartAdvertisingCmd {
+        byte advDataLen = 0;
+        byte scanRspDataLen = 0;
+        byte[] advData = null;
+        byte[] scanRspData = null;
+
+        private GapStartAdvertisingCmd(ByteBuffer byteBuffer) {
+            advDataLen = byteBuffer.get();
+            scanRspDataLen = byteBuffer.get();
+            if (advDataLen > 0) {
+                advData = new byte[advDataLen];
+                byteBuffer.get(advData);
+            }
+            if (scanRspDataLen > 0) {
+                scanRspData = new byte[scanRspDataLen];
+                byteBuffer.get(scanRspData);
+            }
+        }
+
+        public static GapStartAdvertisingCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 2) {
+                return null;
+            }
+
+            return new GapStartAdvertisingCmd(byteBuffer);
+        }
+    }
+
+    public static class GapStartAdvertisingRp {
+        byte[] currentSettings;
+
+        public GapStartAdvertisingRp() {
+            this.currentSettings = new byte[4];
+        }
+
+        byte[] toBytes() {
+            ByteBuffer buf = ByteBuffer.allocate(4);
+            buf.put(currentSettings);
+            return buf.array();
+        }
+    }
+
+    public static final byte GAP_STOP_ADVERTISING = 0x0b;
     public static final byte GAP_START_DISCOVERY = 0x0c;
     public static class GapStartDiscoveryCmd {
         byte flags;
