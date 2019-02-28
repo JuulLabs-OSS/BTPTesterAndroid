@@ -7,6 +7,7 @@ import android.util.Log;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import no.nordicsemi.android.support.v18.scanner.ScanCallback;
 import no.nordicsemi.android.support.v18.scanner.ScanResult;
@@ -15,6 +16,11 @@ public class ScanConnectCallback extends ScanCallback {
 
     private Map<String, ScanResult> results;
     private int errorCode;
+    private IDeviceDiscovered deviceDiscoveredCb;
+
+    public interface IDeviceDiscovered {
+        void report(ScanResult result);
+    }
 
     ScanConnectCallback() {
         results = new HashMap<>();
@@ -36,6 +42,18 @@ public class ScanConnectCallback extends ScanCallback {
 
     private void deviceDiscovered(@NonNull ScanResult result) {
         results.put(result.getDevice().getAddress(), result);
+        if (deviceDiscoveredCb != null) {
+            deviceDiscoveredCb.report(result);
+        }
+    }
+    public void setDeviceDiscoveredCb(IDeviceDiscovered cb) {
+        this.deviceDiscoveredCb = cb;
+    }
+
+    public void clearCache() {
+        this.deviceDiscoveredCb = null;
+        results.clear();
+        errorCode = 0;
     }
 
     @Override

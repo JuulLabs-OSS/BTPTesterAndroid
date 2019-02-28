@@ -1,6 +1,7 @@
 package com.juul.btptesterandroid;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 public final class BTP {
     public static final int HDR_LEN = 5;
@@ -83,6 +84,24 @@ public final class BTP {
             return buf.array();
         }
     }
+    public static final byte GAP_START_DISCOVERY = 0x0c;
+    public static class GapStartDiscoveryCmd {
+        byte flags;
+
+        private GapStartDiscoveryCmd(ByteBuffer byteBuffer) {
+            flags = byteBuffer.get();
+        }
+
+        public static GapStartDiscoveryCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 1) {
+                return null;
+            }
+
+            return new GapStartDiscoveryCmd(byteBuffer);
+        }
+    }
+
+    public static final byte GAP_STOP_DISCOVERY = 0x0d;
 
     public static final byte GAP_CONNECT = 0x0e;
 
@@ -104,6 +123,42 @@ public final class BTP {
             }
 
             return new GapConnectCmd(byteBuffer);
+        }
+    }
+
+    public static final byte GAP_EV_DEVICE_FOUND = (byte) 0x81;
+
+    public static class GapDeviceFoundEv {
+        byte addressType;
+        byte[] address;
+        byte rssi;
+        byte flags;
+        short eirDataLen;
+        byte[] eirData;
+
+        public GapDeviceFoundEv() {
+            addressType = 0;
+            address = new byte[6];
+            rssi = 0;
+            flags = 0;
+            eirDataLen = 0;
+            eirData = null;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(6 + 1 + 1 + 1 + 2 + eirDataLen);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            byteBuffer.put(addressType);
+            byteBuffer.put(address);
+            byteBuffer.put(rssi);
+            byteBuffer.put(flags);
+            byteBuffer.putShort(eirDataLen);
+            if (eirDataLen != 0 && eirData != null) {
+                byteBuffer.put(eirData);
+            }
+
+            return byteBuffer.array();
         }
     }
 

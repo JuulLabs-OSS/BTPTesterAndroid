@@ -221,17 +221,18 @@ public class BTTester {
     public void sendMessage(byte service, byte opcode, byte index, byte[] data) {
         Log.d("TAG", String.format("sendMessage 0x%02x 0x%02x 0x%02x %s",
                 service, opcode, index, Utils.bytesToHex(data)));
-        if (!socket.isOpen()) {
+        BTPMessage message = new BTPMessage(service, opcode, index, data);
+        byte[] bytes = message.toByteArray();
+
+        if (socket != null && socket.isOpen()) {
+            socket.send(bytes);
+        } else {
             try {
                 throw new Exception("WebSocket is closed");
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
-
-        BTPMessage message = new BTPMessage(service, opcode, index, data);
-        byte[] bytes = message.toByteArray();
-        socket.send(bytes);
     }
 
     public void response(byte service, byte opcode, byte index, byte status) {

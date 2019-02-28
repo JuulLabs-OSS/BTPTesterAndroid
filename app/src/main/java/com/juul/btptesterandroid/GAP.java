@@ -19,6 +19,7 @@ import no.nordicsemi.android.ble.exception.InvalidRequestException;
 import no.nordicsemi.android.ble.exception.RequestFailedException;
 import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat;
 import no.nordicsemi.android.support.v18.scanner.ScanFilter;
+import no.nordicsemi.android.support.v18.scanner.ScanResult;
 import no.nordicsemi.android.support.v18.scanner.ScanSettings;
 
 import static com.juul.btptesterandroid.BTP.BTP_INDEX_NONE;
@@ -28,6 +29,7 @@ import static com.juul.btptesterandroid.BTP.BTP_STATUS_SUCCESS;
 import static com.juul.btptesterandroid.BTP.BTP_STATUS_UNKNOWN_CMD;
 import static com.juul.btptesterandroid.BTP.GAP_CONNECT;
 import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_CONNECTED;
+import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_FOUND;
 import static com.juul.btptesterandroid.BTP.GAP_READ_CONTROLLER_INDEX_LIST;
 import static com.juul.btptesterandroid.BTP.GAP_READ_CONTROLLER_INFO;
 import static com.juul.btptesterandroid.BTP.GAP_READ_SUPPORTED_COMMANDS;
@@ -37,6 +39,9 @@ import static com.juul.btptesterandroid.BTP.GAP_SETTINGS_CONNECTABLE;
 import static com.juul.btptesterandroid.BTP.GAP_SETTINGS_LE;
 import static com.juul.btptesterandroid.BTP.GAP_SETTINGS_POWERED;
 import static com.juul.btptesterandroid.BTP.GAP_SETTINGS_STATIC_ADDRESS;
+import static com.juul.btptesterandroid.BTP.GAP_START_DISCOVERY;
+import static com.juul.btptesterandroid.BTP.GAP_STOP_DISCOVERY;
+import static com.juul.btptesterandroid.Utils.btAddrToBytes;
 import static com.juul.btptesterandroid.Utils.setBit;
 
 public class GAP implements BleManagerCallbacks {
@@ -48,6 +53,8 @@ public class GAP implements BleManagerCallbacks {
     private byte[] supportedSettings = new byte[4];
     private byte[] currentSettings = new byte[4];
     private static final int SCAN_TIMEOUT = 1000;
+    private BluetoothLeScannerCompat scanner;
+    private ScanConnectCallback scanCallback;
 
     public void supportedCommands(ByteBuffer data) {
         byte[] cmds = new byte[3];
@@ -75,7 +82,7 @@ public class GAP implements BleManagerCallbacks {
     public void controllerInfo(ByteBuffer data) {
         BTP.GapReadControllerInfoRp rp = new BTP.GapReadControllerInfoRp();
 
-        byte[] addr = bleAdapter.getAddress().getBytes();
+        byte[] addr = btAddrToBytes(bleAdapter.getAddress());
         System.arraycopy(addr, 0, rp.address, 0, rp.address.length);
 
         byte[] name = bleAdapter.getName().getBytes();
@@ -104,6 +111,48 @@ public class GAP implements BleManagerCallbacks {
 
     private static final String BTP_TESTER_UUID = "0000CDAB-0000-1000-8000-00805F9B34FB";
 
+    public void startDiscovery(ByteBuffer data) {
+        BTP.GapStartDiscoveryCmd cmd = BTP.GapStartDiscoveryCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GAP, GAP_START_DISCOVERY, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        Log.d("GAP", String.format("startDiscovery 0x%02x", cmd.flags));
+
+        ScanSettings settings = new ScanSettings.Builder()
+                .setLegacy(false)
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .setUseHardwareBatchingIfSupported(true)
+                .build();
+
+        scanCallback.clearCache();
+        scanCallback.setDeviceDiscoveredCb(this::deviceFound);
+        scanner.startScan(null, settings, scanCallback);
+
+        if (scanCallback.getErrorCode() != 0) {
+            tester.response(BTP_SERVICE_ID_GAP, GAP_START_DISCOVERY, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+
+        tester.response(BTP_SERVICE_ID_GAP, GAP_START_DISCOVERY, CONTROLLER_INDEX,
+                BTP_STATUS_SUCCESS);
+    }
+
+    public void stopDiscovery(ByteBuffer data) {
+        Log.d("GAP", "stopDiscovery");
+        scanner.stopScan(scanCallback);
+        if (scanCallback.getErrorCode() != 0) {
+            tester.response(BTP_SERVICE_ID_GAP, GAP_STOP_DISCOVERY, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+
+        tester.response(BTP_SERVICE_ID_GAP, GAP_STOP_DISCOVERY, CONTROLLER_INDEX,
+                BTP_STATUS_SUCCESS);
+    }
+
     public void connect(ByteBuffer data) {
         BTP.GapConnectCmd cmd = BTP.GapConnectCmd.parse(data);
         if (cmd == null) {
@@ -114,7 +163,6 @@ public class GAP implements BleManagerCallbacks {
         Log.d("GAP", String.format("connect %d %s", cmd.addressType,
                 Utils.bytesToHex(cmd.address)));
 
-        BluetoothLeScannerCompat scanner = BluetoothLeScannerCompat.getScanner();
         ScanSettings settings = new ScanSettings.Builder()
                 .setLegacy(false)
                 .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
@@ -124,7 +172,7 @@ public class GAP implements BleManagerCallbacks {
         filters.add(new ScanFilter.Builder().setServiceUuid(ParcelUuid.fromString(BTP_TESTER_UUID)).build());
         String addr = Utils.bytesToHex(cmd.address).replaceAll("..(?!$)", "$0:");
 
-        ScanConnectCallback scanCallback = new ScanConnectCallback();
+        scanCallback.clearCache();
         scanner.startScan(filters, settings, scanCallback);
 
         try {
@@ -154,6 +202,24 @@ public class GAP implements BleManagerCallbacks {
                 CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
     }
 
+    public void deviceFound(@NonNull ScanResult result) {
+        BTP.GapDeviceFoundEv ev = new BTP.GapDeviceFoundEv();
+        BluetoothDevice device = result.getDevice();
+
+        ev.addressType = 0x01; /* assume random */
+
+        byte[] addr = btAddrToBytes(device.getAddress());
+        System.arraycopy(addr, 0, ev.address, 0, ev.address.length);
+
+        ev.rssi = (byte) result.getRssi();
+        if (result.getScanRecord() != null) {
+            ev.flags = (byte) result.getScanRecord().getAdvertiseFlags();
+        }
+
+        tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_EV_DEVICE_FOUND,
+                CONTROLLER_INDEX, ev.toBytes());
+    }
+
     @Override
     public void onDeviceConnecting(@NonNull BluetoothDevice device) {
 
@@ -163,8 +229,9 @@ public class GAP implements BleManagerCallbacks {
     public void onDeviceConnected(@NonNull BluetoothDevice device) {
         BTP.GapDeviceConnectedEv ev = new BTP.GapDeviceConnectedEv();
 
-        ev.addressType = 0x01; /* random */
-        byte[] addr = device.getAddress().getBytes();
+        ev.addressType = 0x01; /* assume random */
+
+        byte[] addr = btAddrToBytes(device.getAddress());
         System.arraycopy(addr, 0, ev.address, 0, ev.address.length);
 
         tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_EV_DEVICE_CONNECTED,
@@ -250,6 +317,12 @@ public class GAP implements BleManagerCallbacks {
             case GAP_READ_CONTROLLER_INFO:
                 controllerInfo(data);
                 break;
+            case GAP_START_DISCOVERY:
+                startDiscovery(data);
+                break;
+            case GAP_STOP_DISCOVERY:
+                stopDiscovery(data);
+                break;
             case GAP_CONNECT:
                 connect(data);
                 break;
@@ -264,6 +337,8 @@ public class GAP implements BleManagerCallbacks {
         this.bleAdapter = bleAdapter;
         this.bleManager = bleManager;
         this.bleManager.setGattCallbacks(this);
+        this.scanner = BluetoothLeScannerCompat.getScanner();
+        this.scanCallback = new ScanConnectCallback();
         return BTP_STATUS_SUCCESS;
     }
 

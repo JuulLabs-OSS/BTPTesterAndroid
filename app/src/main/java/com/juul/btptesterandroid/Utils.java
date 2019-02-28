@@ -43,6 +43,16 @@ public class Utils {
         return new String(hexChars);
     }
 
+    public static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i+1), 16));
+        }
+        return data;
+    }
+
     public static void reverseBytes(byte[] bytes) {
         for(int i = 0; i < bytes.length / 2; i++)
         {
@@ -50,5 +60,12 @@ public class Utils {
             bytes[i] = bytes[bytes.length - i - 1];
             bytes[bytes.length - i - 1] = temp;
         }
+    }
+
+    public static byte[] btAddrToBytes(String address) {
+        String addrStr = address.replaceAll(":", "");
+        byte[] addr = hexStringToByteArray(addrStr);
+        reverseBytes(addr);
+        return addr;
     }
 }
