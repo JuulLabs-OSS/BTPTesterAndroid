@@ -220,12 +220,6 @@ public class GAP implements BleManagerCallbacks {
         Log.d("GAP", String.format("startAdvertising 0x%02x 0x%02x", cmd.advDataLen,
                 cmd.scanRspDataLen));
 
-        if (cmd.advDataLen > 0 || cmd.scanRspDataLen > 0) {
-            tester.response(BTP_SERVICE_ID_GAP, GAP_START_ADVERTISING, CONTROLLER_INDEX,
-                    BTP_STATUS_FAILED);
-            return;
-        }
-
         AdvertiseSettings settings = new AdvertiseSettings.Builder()
                 .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
                 .setConnectable(true)
