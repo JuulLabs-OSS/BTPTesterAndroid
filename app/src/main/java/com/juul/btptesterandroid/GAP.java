@@ -18,6 +18,7 @@ import java.util.List;
 import androidx.annotation.NonNull;
 import no.nordicsemi.android.ble.BleManagerCallbacks;
 import no.nordicsemi.android.ble.ConnectRequest;
+import no.nordicsemi.android.ble.DisconnectRequest;
 import no.nordicsemi.android.ble.exception.BluetoothDisabledException;
 import no.nordicsemi.android.ble.exception.DeviceDisconnectedException;
 import no.nordicsemi.android.ble.exception.InvalidRequestException;
@@ -33,7 +34,9 @@ import static com.juul.btptesterandroid.BTP.BTP_STATUS_FAILED;
 import static com.juul.btptesterandroid.BTP.BTP_STATUS_SUCCESS;
 import static com.juul.btptesterandroid.BTP.BTP_STATUS_UNKNOWN_CMD;
 import static com.juul.btptesterandroid.BTP.GAP_CONNECT;
+import static com.juul.btptesterandroid.BTP.GAP_DISCONNECT;
 import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_CONNECTED;
+import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_DISCONNECTED;
 import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_FOUND;
 import static com.juul.btptesterandroid.BTP.GAP_GENERAL_DISCOVERABLE;
 import static com.juul.btptesterandroid.BTP.GAP_READ_CONTROLLER_INDEX_LIST;
@@ -331,6 +334,24 @@ public class GAP implements BleManagerCallbacks {
                 CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
     }
 
+    public void disconnect(ByteBuffer data) {
+        BTP.GapDisconnectCmd cmd = BTP.GapDisconnectCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GAP, GAP_DISCONNECT, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        Log.d("GAP", String.format("disconnect %d %s", cmd.addressType,
+                Utils.bytesToHex(cmd.address)));
+
+        DisconnectRequest req = bleManager.disconnect();
+        req.enqueue();
+
+        tester.response(BTP_SERVICE_ID_GAP, GAP_DISCONNECT,
+                CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
+    }
+
+
     public void deviceFound(@NonNull ScanResult result) {
         BTP.GapDeviceFoundEv ev = new BTP.GapDeviceFoundEv();
         BluetoothDevice device = result.getDevice();
@@ -380,7 +401,15 @@ public class GAP implements BleManagerCallbacks {
 
     @Override
     public void onDeviceDisconnected(@NonNull BluetoothDevice device) {
+        BTP.GapDeviceDisconnectedEv ev = new BTP.GapDeviceDisconnectedEv();
 
+        ev.addressType = 0x01; /* assume random */
+
+        byte[] addr = btAddrToBytes(device.getAddress());
+        System.arraycopy(addr, 0, ev.address, 0, ev.address.length);
+
+        tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_EV_DEVICE_DISCONNECTED,
+                CONTROLLER_INDEX, ev.toBytes());
     }
 
     @Override
@@ -472,6 +501,9 @@ public class GAP implements BleManagerCallbacks {
                 break;
             case GAP_CONNECT:
                 connect(data);
+                break;
+            case GAP_DISCONNECT:
+                disconnect(data);
                 break;
             default:
                 tester.response(BTP_SERVICE_ID_GAP, opcode, index, BTP_STATUS_UNKNOWN_CMD);

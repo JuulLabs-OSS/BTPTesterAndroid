@@ -237,6 +237,30 @@ public final class BTP {
         }
     }
 
+    public static final byte GAP_DISCONNECT = 0x0f;
+
+    public static class GapDisconnectCmd {
+        byte addressType;
+        byte[] address;
+
+        private GapDisconnectCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+        }
+
+        public static GapDisconnectCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 7) {
+                return null;
+            }
+
+            return new GapDisconnectCmd(byteBuffer);
+        }
+    }
+
+
     public static final byte GAP_EV_DEVICE_FOUND = (byte) 0x81;
 
     public static class GapDeviceFoundEv {
@@ -294,5 +318,24 @@ public final class BTP {
         }
     }
 
+    public static final byte GAP_EV_DEVICE_DISCONNECTED = (byte) 0x83;
 
+    public static class GapDeviceDisconnectedEv {
+        byte addressType;
+        byte[] address;
+
+        public GapDeviceDisconnectedEv() {
+            addressType = 0;
+            address = new byte[6];
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(6 + 1);
+
+            byteBuffer.put(addressType);
+            byteBuffer.put(address);
+
+            return byteBuffer.array();
+        }
+    }
 }
