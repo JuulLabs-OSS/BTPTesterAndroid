@@ -363,6 +363,7 @@ public class GAP implements BleManagerCallbacks {
         if (result.getScanRecord() != null &&
                 result.getScanRecord().getBytes() != null) {
             byte[] data = result.getScanRecord().getBytes();
+            ev.eirDataLen = (short) data.length;
             ev.eirData = Arrays.copyOf(data, data.length);
         }
 
