@@ -16,6 +16,13 @@ public class Utils {
         return testBit(data[byteIdx], bit % 8);
     }
 
+    static void clearBit(final byte[] data, int bit)
+    {
+        int byteIdx = (bit / 8);
+
+        data[byteIdx] = clearBit(data[byteIdx], bit % 8);
+    }
+
     static byte setBit(byte b, int bit) {
        return b |= 1 << bit;
     }
