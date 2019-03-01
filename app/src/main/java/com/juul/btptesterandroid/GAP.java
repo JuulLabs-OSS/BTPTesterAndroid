@@ -98,6 +98,17 @@ public class GAP implements BleManagerCallbacks {
         setBit(cmds, GAP_READ_SUPPORTED_COMMANDS);
         setBit(cmds, GAP_READ_CONTROLLER_INDEX_LIST);
         setBit(cmds, GAP_READ_CONTROLLER_INFO);
+        setBit(cmds, GAP_SET_CONNECTABLE);
+        setBit(cmds, GAP_SET_DISCOVERABLE);
+        setBit(cmds, GAP_START_ADVERTISING);
+        setBit(cmds, GAP_STOP_ADVERTISING);
+        setBit(cmds, GAP_START_DISCOVERY);
+        setBit(cmds, GAP_STOP_DISCOVERY);
+        setBit(cmds, GAP_CONNECT);
+        setBit(cmds, GAP_DISCONNECT);
+        setBit(cmds, GAP_SET_IO_CAP);
+        setBit(cmds, GAP_PAIR);
+        setBit(cmds, GAP_UNPAIR);
 
         tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_READ_SUPPORTED_COMMANDS, CONTROLLER_INDEX,
                 cmds);
