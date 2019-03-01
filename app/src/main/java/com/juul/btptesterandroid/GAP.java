@@ -8,7 +8,11 @@ import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseData;
 import android.bluetooth.le.AdvertiseSettings;
 import android.bluetooth.le.BluetoothLeAdvertiser;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Build;
 import android.os.ParcelUuid;
 import android.util.Log;
 
@@ -524,6 +528,18 @@ public class GAP implements BleManagerCallbacks {
         Log.d("GAP", String.format("onDeviceNotSupported %s", device));
     }
 
+    private final BroadcastReceiver incomingPairRequestReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (BluetoothDevice.ACTION_PAIRING_REQUEST.equals(action)) {
+                BluetoothDevice dev = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                Log.d("GAP", String.format("ActionPairingRequest %s", dev));
+                // FIXME: This does not work
+                // dev.setPairingConfirmation(true);
+            }
+        }
+    };
 
     public void handleGAP(byte opcode, byte index, ByteBuffer data) {
         switch (opcode) {
@@ -612,6 +628,9 @@ public class GAP implements BleManagerCallbacks {
         this.bleConnectionManager = new BleConnectionManager(this.context);
         this.bleConnectionManager.setGattCallbacks(this);
 
+        this.context.registerReceiver(incomingPairRequestReceiver,
+                new IntentFilter(BluetoothDevice.ACTION_PAIRING_REQUEST));
+
         return BTP_STATUS_SUCCESS;
     }
 
@@ -642,6 +661,8 @@ public class GAP implements BleManagerCallbacks {
         if (advertiseCallback != null) {
             this.advertiser.stopAdvertising(advertiseCallback);
         }
+
+        this.context.unregisterReceiver(incomingPairRequestReceiver);
     }
 
     public byte unregister() {
