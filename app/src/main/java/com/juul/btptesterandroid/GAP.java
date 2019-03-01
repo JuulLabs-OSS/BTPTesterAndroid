@@ -22,6 +22,7 @@ import androidx.annotation.NonNull;
 import no.nordicsemi.android.ble.BleManagerCallbacks;
 import no.nordicsemi.android.ble.ConnectRequest;
 import no.nordicsemi.android.ble.DisconnectRequest;
+import no.nordicsemi.android.ble.Request;
 import no.nordicsemi.android.ble.exception.BluetoothDisabledException;
 import no.nordicsemi.android.ble.exception.DeviceDisconnectedException;
 import no.nordicsemi.android.ble.exception.InvalidRequestException;
@@ -392,6 +393,9 @@ public class GAP implements BleManagerCallbacks {
         Log.d("GAP", String.format("pair %d %s", cmd.addressType,
                 Utils.bytesToHex(cmd.address)));
 
+        Request request = bleConnectionManager.createBond();
+        request.enqueue();
+
         tester.response(BTP_SERVICE_ID_GAP, GAP_PAIR,
                 CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
     }
@@ -406,11 +410,16 @@ public class GAP implements BleManagerCallbacks {
         Log.d("GAP", String.format("unpair %d %s", cmd.addressType,
                 Utils.bytesToHex(cmd.address)));
 
+        Request request = bleConnectionManager.removeBond();
+        request.enqueue();
+
         tester.response(BTP_SERVICE_ID_GAP, GAP_UNPAIR,
                 CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
     }
 
     public void deviceFound(@NonNull ScanResult result) {
+        Log.d("GAP", String.format("deviceFound %s", result));
+
         BTP.GapDeviceFoundEv ev = new BTP.GapDeviceFoundEv();
         BluetoothDevice device = result.getDevice();
 
@@ -437,11 +446,12 @@ public class GAP implements BleManagerCallbacks {
 
     @Override
     public void onDeviceConnecting(@NonNull BluetoothDevice device) {
-
+        Log.d("GAP", String.format("onDeviceConnecting %s", device));
     }
 
     @Override
     public void onDeviceConnected(@NonNull BluetoothDevice device) {
+        Log.d("GAP", String.format("onDeviceConnected %s", device));
         BTP.GapDeviceConnectedEv ev = new BTP.GapDeviceConnectedEv();
 
         ev.addressType = 0x01; /* assume random */
@@ -455,11 +465,12 @@ public class GAP implements BleManagerCallbacks {
 
     @Override
     public void onDeviceDisconnecting(@NonNull BluetoothDevice device) {
-
+        Log.d("GAP", String.format("onDeviceDisconnecting %s", device));
     }
 
     @Override
     public void onDeviceDisconnected(@NonNull BluetoothDevice device) {
+        Log.d("GAP", String.format("onDeviceDisconnected %s", device));
         BTP.GapDeviceDisconnectedEv ev = new BTP.GapDeviceDisconnectedEv();
 
         ev.addressType = 0x01; /* assume random */
@@ -473,43 +484,44 @@ public class GAP implements BleManagerCallbacks {
 
     @Override
     public void onLinkLossOccurred(@NonNull BluetoothDevice device) {
-
+        Log.d("GAP", String.format("onLinkLossOccured %s", device));
     }
 
     @Override
     public void onServicesDiscovered(@NonNull BluetoothDevice device,
                                      boolean optionalServicesFound) {
-
+        Log.d("GAP", String.format("onServicesDiscovered %s %b", device,
+                optionalServicesFound));
     }
 
     @Override
     public void onDeviceReady(@NonNull BluetoothDevice device) {
-
+        Log.d("GAP", String.format("onDeviceReady %s", device));
     }
 
     @Override
     public void onBondingRequired(@NonNull BluetoothDevice device) {
-
+        Log.d("GAP", String.format("onBondingRequired %s", device));
     }
 
     @Override
     public void onBonded(@NonNull BluetoothDevice device) {
-
+        Log.d("GAP", String.format("onBonded %s", device));
     }
 
     @Override
     public void onBondingFailed(@NonNull BluetoothDevice device) {
-
+        Log.d("GAP", String.format("onBondingFailed %s", device));
     }
 
     @Override
     public void onError(@NonNull BluetoothDevice device, @NonNull String message, int errorCode) {
-
+        Log.d("GAP", String.format("onError %s %s %d", device, message, errorCode));
     }
 
     @Override
     public void onDeviceNotSupported(@NonNull BluetoothDevice device) {
-
+        Log.d("GAP", String.format("onDeviceNotSupported %s", device));
     }
 
 
@@ -604,20 +616,22 @@ public class GAP implements BleManagerCallbacks {
     }
 
     public void cleanup() {
-        if (this.bleConnectionManager.isConnected()) {
-            try {
+        try {
+            if (this.bleConnectionManager.isConnected()) {
                 this.bleConnectionManager.disconnect().await();
-            } catch (RequestFailedException e) {
-                e.printStackTrace();
-            } catch (DeviceDisconnectedException e) {
-                e.printStackTrace();
-            } catch (BluetoothDisabledException e) {
-                e.printStackTrace();
-            } catch (InvalidRequestException e) {
-                e.printStackTrace();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
             }
+
+            this.bleConnectionManager.removeBond().enqueue();
+        } catch (RequestFailedException e) {
+            e.printStackTrace();
+        } catch (DeviceDisconnectedException e) {
+            e.printStackTrace();
+        } catch (BluetoothDisabledException e) {
+            e.printStackTrace();
+        } catch (InvalidRequestException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
 
         if (gattServer != null) {
