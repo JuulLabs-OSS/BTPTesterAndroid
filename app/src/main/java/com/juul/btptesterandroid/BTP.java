@@ -86,6 +86,7 @@ public final class BTP {
     }
 
     public static final byte GAP_SET_CONNECTABLE = 0x06;
+
     public static class GapSetConnectableCmd {
         byte connectable = 0;
 
@@ -121,6 +122,7 @@ public final class BTP {
     public static final byte GAP_LIMITED_DISCOVERABLE = 0x02;
 
     public static final byte GAP_SET_DISCOVERABLE = 0x08;
+
     public static class GapSetDiscoverableCmd {
         byte discoverable = 0;
 
@@ -152,6 +154,7 @@ public final class BTP {
     }
 
     public static final byte GAP_START_ADVERTISING = 0x0a;
+
     public static class GapStartAdvertisingCmd {
         byte advDataLen = 0;
         byte scanRspDataLen = 0;
@@ -196,6 +199,7 @@ public final class BTP {
 
     public static final byte GAP_STOP_ADVERTISING = 0x0b;
     public static final byte GAP_START_DISCOVERY = 0x0c;
+
     public static class GapStartDiscoveryCmd {
         byte flags;
 
@@ -257,6 +261,30 @@ public final class BTP {
             }
 
             return new GapDisconnectCmd(byteBuffer);
+        }
+    }
+
+    public static final byte GAP_IO_CAP_DISPLAY_ONLY = 0x00;
+    public static final byte GAP_IO_CAP_DISPLAY_YESNO = 0x01;
+    public static final byte GAP_IO_CAP_KEYBOARD_ONLY = 0x02;
+    public static final byte GAP_IO_CAP_NO_INPUT_OUTPUT = 0x03;
+    public static final byte GAP_IO_CAP_KEYBOARD_DISPLAY = 0x04;
+
+    public static final byte GAP_SET_IO_CAP = 0x10;
+
+    public static class GapSetIOCapCmd {
+        byte ioCap;
+
+        private GapSetIOCapCmd(ByteBuffer byteBuffer) {
+            ioCap = byteBuffer.get();
+        }
+
+        public static GapSetIOCapCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 1) {
+                return null;
+            }
+
+            return new GapSetIOCapCmd(byteBuffer);
         }
     }
 

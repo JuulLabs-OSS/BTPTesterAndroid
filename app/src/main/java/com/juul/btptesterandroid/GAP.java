@@ -55,6 +55,7 @@ import static com.juul.btptesterandroid.BTP.GAP_SETTINGS_PRIVACY;
 import static com.juul.btptesterandroid.BTP.GAP_SETTINGS_STATIC_ADDRESS;
 import static com.juul.btptesterandroid.BTP.GAP_SET_CONNECTABLE;
 import static com.juul.btptesterandroid.BTP.GAP_SET_DISCOVERABLE;
+import static com.juul.btptesterandroid.BTP.GAP_SET_IO_CAP;
 import static com.juul.btptesterandroid.BTP.GAP_START_ADVERTISING;
 import static com.juul.btptesterandroid.BTP.GAP_START_DISCOVERY;
 import static com.juul.btptesterandroid.BTP.GAP_STOP_ADVERTISING;
@@ -366,6 +367,18 @@ public class GAP implements BleManagerCallbacks {
                 CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
     }
 
+    private void setIOCap(ByteBuffer data) {
+        BTP.GapSetIOCapCmd cmd = BTP.GapSetIOCapCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GAP, GAP_SET_IO_CAP, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        Log.d("GAP", String.format("set io cap %d", cmd.ioCap));
+
+        tester.response(BTP_SERVICE_ID_GAP, GAP_SET_IO_CAP,
+                CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
+    }
 
     public void deviceFound(@NonNull ScanResult result) {
         BTP.GapDeviceFoundEv ev = new BTP.GapDeviceFoundEv();
@@ -520,6 +533,9 @@ public class GAP implements BleManagerCallbacks {
                 break;
             case GAP_DISCONNECT:
                 disconnect(data);
+                break;
+            case GAP_SET_IO_CAP:
+                setIOCap(data);
                 break;
             default:
                 tester.response(BTP_SERVICE_ID_GAP, opcode, index, BTP_STATUS_UNKNOWN_CMD);
