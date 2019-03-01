@@ -2,10 +2,13 @@ package com.juul.btptesterandroid;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGattServer;
+import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseData;
 import android.bluetooth.le.AdvertiseSettings;
 import android.bluetooth.le.BluetoothLeAdvertiser;
+import android.content.Context;
 import android.os.ParcelUuid;
 import android.util.Log;
 
@@ -62,17 +65,24 @@ import static com.juul.btptesterandroid.Utils.setBit;
 
 public class GAP implements BleManagerCallbacks {
 
+    private static final int SCAN_TIMEOUT = 1000;
+
+    private Context context;
     private BTTester tester = null;
     private BluetoothAdapter bleAdapter = null;
-    private BTPBleManager bleManager = null;
-    private static final byte CONTROLLER_INDEX = 0;
-    private byte[] supportedSettings = new byte[4];
-    private byte[] currentSettings = new byte[4];
-    private static final int SCAN_TIMEOUT = 1000;
+    private BluetoothManager bleManager = null;
+    private BleConnectionManager bleConnectionManager = null;
+
+    private BluetoothGattServer gattServer;
+    private BTPGattServerCallback gattServerCallback;
     private BluetoothLeScannerCompat scanner;
     private ScanConnectCallback scanCallback;
     private BluetoothLeAdvertiser advertiser;
     private BTPAdvertiseCallback advertiseCallback;
+
+    private static final byte CONTROLLER_INDEX = 0;
+    private byte[] supportedSettings = new byte[4];
+    private byte[] currentSettings = new byte[4];
 
     public void supportedCommands(ByteBuffer data) {
         byte[] cmds = new byte[3];
@@ -332,7 +342,7 @@ public class GAP implements BleManagerCallbacks {
             return;
         }
 
-        ConnectRequest req = bleManager.connect(device);
+        ConnectRequest req = bleConnectionManager.connect(device);
         req.enqueue();
 
         tester.response(BTP_SERVICE_ID_GAP, GAP_CONNECT,
@@ -349,7 +359,7 @@ public class GAP implements BleManagerCallbacks {
         Log.d("GAP", String.format("disconnect %d %s", cmd.addressType,
                 Utils.bytesToHex(cmd.address)));
 
-        DisconnectRequest req = bleManager.disconnect();
+        DisconnectRequest req = bleConnectionManager.disconnect();
         req.enqueue();
 
         tester.response(BTP_SERVICE_ID_GAP, GAP_DISCONNECT,
@@ -461,7 +471,7 @@ public class GAP implements BleManagerCallbacks {
 
 
     public void handleGAP(byte opcode, byte index, ByteBuffer data) {
-        switch(opcode) {
+        switch (opcode) {
             case GAP_READ_SUPPORTED_COMMANDS:
             case GAP_READ_CONTROLLER_INDEX_LIST:
                 if (index != BTP_INDEX_NONE) {
@@ -477,7 +487,7 @@ public class GAP implements BleManagerCallbacks {
                 break;
         }
 
-        switch(opcode) {
+        switch (opcode) {
             case GAP_READ_SUPPORTED_COMMANDS:
                 supportedCommands(data);
                 break;
@@ -517,21 +527,34 @@ public class GAP implements BleManagerCallbacks {
         }
     }
 
-    public byte init(BTTester tester, BluetoothAdapter bleAdapter, BTPBleManager bleManager) {
+    public byte init(Context context, BTTester tester, BluetoothAdapter bleAdapter,
+                     BluetoothManager bleManager) {
+        this.context = context;
         this.tester = tester;
         this.bleAdapter = bleAdapter;
         this.bleManager = bleManager;
-        this.bleManager.setGattCallbacks(this);
+
+        this.gattServerCallback = new BTPGattServerCallback(this);
+        this.gattServer = this.bleManager.openGattServer(context, gattServerCallback);
+        if (this.gattServer == null) {
+            return BTP_STATUS_FAILED;
+        }
+
         this.scanner = BluetoothLeScannerCompat.getScanner();
         this.scanCallback = new ScanConnectCallback();
+
         this.advertiser = BluetoothAdapter.getDefaultAdapter().getBluetoothLeAdvertiser();
+
+        this.bleConnectionManager = new BleConnectionManager(this.context);
+        this.bleConnectionManager.setGattCallbacks(this);
+
         return BTP_STATUS_SUCCESS;
     }
 
     public void cleanup() {
-        if (this.bleManager.isConnected()) {
+        if (this.bleConnectionManager.isConnected()) {
             try {
-                this.bleManager.disconnect().await();
+                this.bleConnectionManager.disconnect().await();
             } catch (RequestFailedException e) {
                 e.printStackTrace();
             } catch (DeviceDisconnectedException e) {
@@ -543,6 +566,11 @@ public class GAP implements BleManagerCallbacks {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+        }
+
+        if (gattServer != null) {
+            gattServer.clearServices();
+            gattServer.close();
         }
 
         if (advertiseCallback != null) {

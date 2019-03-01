@@ -34,7 +34,7 @@ public class BTTester {
     private Context context;
     private BluetoothAdapter bleAdapter;
     private BluetoothManager bleManager;
-    private BTPBleManager btpBleManager;
+    private BleConnectionManager bleConnectionManager;
 
     private GAP gap = null;
 
@@ -44,7 +44,6 @@ public class BTTester {
         this.context = context;
         this.bleAdapter = bleAdapter;
         this.bleManager = bleManager;
-        this.btpBleManager = new BTPBleManager(this.context);
     }
 
     public void init() {
@@ -132,7 +131,7 @@ public class BTTester {
                     status = BTP_STATUS_FAILED;
                 } else {
                     gap = new GAP();
-                    status = gap.init(this, bleAdapter, btpBleManager);
+                    status = gap.init(context, this, bleAdapter, bleManager);
                 }
                 break;
             case BTP_SERVICE_ID_GATT:

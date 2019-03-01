@@ -8,7 +8,7 @@ import androidx.annotation.NonNull;
 import no.nordicsemi.android.ble.BleManager;
 import no.nordicsemi.android.ble.BleManagerCallbacks;
 
-public class BTPBleManager extends BleManager  {
+public class BleConnectionManager extends BleManager  {
 
     /**
      * The manager constructor.
@@ -20,7 +20,7 @@ public class BTPBleManager extends BleManager  {
      *
      * @param context the context.
      */
-    public BTPBleManager(@NonNull Context context) {
+    public BleConnectionManager(@NonNull Context context) {
         super(context);
     }
 
