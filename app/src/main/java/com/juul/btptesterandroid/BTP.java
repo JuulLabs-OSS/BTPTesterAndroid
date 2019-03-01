@@ -288,6 +288,52 @@ public final class BTP {
         }
     }
 
+    public static final byte GAP_PAIR = 0x11;
+
+    public static class GapPairCmd {
+        byte addressType;
+        byte[] address;
+
+        private GapPairCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+        }
+
+        public static GapPairCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 7) {
+                return null;
+            }
+
+            return new GapPairCmd(byteBuffer);
+        }
+    }
+
+    public static final byte GAP_UNPAIR = 0x12;
+
+    public static class GapUnpairCmd {
+        byte addressType;
+        byte[] address;
+
+        private GapUnpairCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+        }
+
+        public static GapUnpairCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 7) {
+                return null;
+            }
+
+            return new GapUnpairCmd(byteBuffer);
+        }
+    }
+
 
     public static final byte GAP_EV_DEVICE_FOUND = (byte) 0x81;
 

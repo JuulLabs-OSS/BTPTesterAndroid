@@ -42,6 +42,7 @@ import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_CONNECTED;
 import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_DISCONNECTED;
 import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_FOUND;
 import static com.juul.btptesterandroid.BTP.GAP_GENERAL_DISCOVERABLE;
+import static com.juul.btptesterandroid.BTP.GAP_PAIR;
 import static com.juul.btptesterandroid.BTP.GAP_READ_CONTROLLER_INDEX_LIST;
 import static com.juul.btptesterandroid.BTP.GAP_READ_CONTROLLER_INFO;
 import static com.juul.btptesterandroid.BTP.GAP_READ_SUPPORTED_COMMANDS;
@@ -60,6 +61,7 @@ import static com.juul.btptesterandroid.BTP.GAP_START_ADVERTISING;
 import static com.juul.btptesterandroid.BTP.GAP_START_DISCOVERY;
 import static com.juul.btptesterandroid.BTP.GAP_STOP_ADVERTISING;
 import static com.juul.btptesterandroid.BTP.GAP_STOP_DISCOVERY;
+import static com.juul.btptesterandroid.BTP.GAP_UNPAIR;
 import static com.juul.btptesterandroid.Utils.btAddrToBytes;
 import static com.juul.btptesterandroid.Utils.clearBit;
 import static com.juul.btptesterandroid.Utils.setBit;
@@ -380,6 +382,34 @@ public class GAP implements BleManagerCallbacks {
                 CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
     }
 
+    private void pair(ByteBuffer data) {
+        BTP.GapPairCmd cmd = BTP.GapPairCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GAP, GAP_PAIR, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        Log.d("GAP", String.format("pair %d %s", cmd.addressType,
+                Utils.bytesToHex(cmd.address)));
+
+        tester.response(BTP_SERVICE_ID_GAP, GAP_PAIR,
+                CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
+    }
+
+    private void unpair(ByteBuffer data) {
+        BTP.GapUnpairCmd cmd = BTP.GapUnpairCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GAP, GAP_UNPAIR, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        Log.d("GAP", String.format("unpair %d %s", cmd.addressType,
+                Utils.bytesToHex(cmd.address)));
+
+        tester.response(BTP_SERVICE_ID_GAP, GAP_UNPAIR,
+                CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
+    }
+
     public void deviceFound(@NonNull ScanResult result) {
         BTP.GapDeviceFoundEv ev = new BTP.GapDeviceFoundEv();
         BluetoothDevice device = result.getDevice();
@@ -536,6 +566,12 @@ public class GAP implements BleManagerCallbacks {
                 break;
             case GAP_SET_IO_CAP:
                 setIOCap(data);
+                break;
+            case GAP_PAIR:
+                pair(data);
+                break;
+            case GAP_UNPAIR:
+                unpair(data);
                 break;
             default:
                 tester.response(BTP_SERVICE_ID_GAP, opcode, index, BTP_STATUS_UNKNOWN_CMD);
