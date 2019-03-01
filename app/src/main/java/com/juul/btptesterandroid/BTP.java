@@ -2,6 +2,8 @@ package com.juul.btptesterandroid;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class BTP {
     public static final int HDR_LEN = 5;
@@ -412,4 +414,88 @@ public final class BTP {
             return byteBuffer.array();
         }
     }
+
+    /* GATT Service */
+    /* commands */
+    public static final byte GATT_READ_SUPPORTED_COMMANDS = 0x01;
+
+    public static final byte GATT_SERVICE_PRIMARY = 0x00;
+    public static final byte GATT_SERVICE_SECONDARY = 0x01;
+
+
+    public static class GattService {
+        short startHandle;
+        short endHandle;
+        byte uuidLen;
+        byte[] uuid;
+
+        public GattService(short startHandle, short endHandle,
+                           byte[] uuid) {
+            this.startHandle = startHandle;
+            this.endHandle = endHandle;
+            this.uuidLen = (byte) uuid.length;
+            this.uuid = uuid;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(2 + 2 + 1 + uuidLen);
+
+            byteBuffer.putShort(startHandle);
+            byteBuffer.putShort(endHandle);
+            byteBuffer.put(uuidLen);
+            byteBuffer.put(uuid);
+
+            return byteBuffer.array();
+        }
+    }
+
+    public static final byte GATT_DISC_ALL_PRIM_SVCS = 0x0b;
+
+    public static class GattDiscAllPrimSvcsCmd {
+        byte addressType;
+        byte[] address;
+
+        public GattDiscAllPrimSvcsCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+        }
+
+        public static GattDiscAllPrimSvcsCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 7) {
+                return null;
+            }
+
+            return new GattDiscAllPrimSvcsCmd(byteBuffer);
+        }
+    }
+
+    public static class GattDiscAllPrimSvcsRp {
+        byte servicesCount;
+        GattService[] services;
+
+        public GattDiscAllPrimSvcsRp(GattService[] services) {
+            this.servicesCount = (byte) services.length;
+            this.services = services;
+        }
+
+        public byte[] toBytes() {
+            int length = 0;
+            for (GattService service : services) {
+                length += service.toBytes().length;
+            }
+
+            ByteBuffer byteBuffer = ByteBuffer.allocate(1 + length);
+
+            byteBuffer.put(servicesCount);
+            for (GattService service : services) {
+                byteBuffer.put(service.toBytes());
+            }
+
+            return byteBuffer.array();
+        }
+    }
+
 }

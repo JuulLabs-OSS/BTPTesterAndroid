@@ -12,7 +12,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.Build;
 import android.os.ParcelUuid;
 import android.util.Log;
 
@@ -38,6 +37,7 @@ import no.nordicsemi.android.support.v18.scanner.ScanSettings;
 
 import static com.juul.btptesterandroid.BTP.BTP_INDEX_NONE;
 import static com.juul.btptesterandroid.BTP.BTP_SERVICE_ID_GAP;
+import static com.juul.btptesterandroid.BTP.BTP_SERVICE_ID_GATT;
 import static com.juul.btptesterandroid.BTP.BTP_STATUS_FAILED;
 import static com.juul.btptesterandroid.BTP.BTP_STATUS_SUCCESS;
 import static com.juul.btptesterandroid.BTP.BTP_STATUS_UNKNOWN_CMD;
@@ -67,6 +67,8 @@ import static com.juul.btptesterandroid.BTP.GAP_START_DISCOVERY;
 import static com.juul.btptesterandroid.BTP.GAP_STOP_ADVERTISING;
 import static com.juul.btptesterandroid.BTP.GAP_STOP_DISCOVERY;
 import static com.juul.btptesterandroid.BTP.GAP_UNPAIR;
+import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_PRIM_SVCS;
+import static com.juul.btptesterandroid.BTP.GATT_READ_SUPPORTED_COMMANDS;
 import static com.juul.btptesterandroid.Utils.btAddrToBytes;
 import static com.juul.btptesterandroid.Utils.clearBit;
 import static com.juul.btptesterandroid.Utils.setBit;
@@ -92,7 +94,7 @@ public class GAP implements BleManagerCallbacks {
     private byte[] supportedSettings = new byte[4];
     private byte[] currentSettings = new byte[4];
 
-    public void supportedCommands(ByteBuffer data) {
+    public void supportedCommandsGAP(ByteBuffer data) {
         byte[] cmds = new byte[3];
 
         setBit(cmds, GAP_READ_SUPPORTED_COMMANDS);
@@ -571,7 +573,7 @@ public class GAP implements BleManagerCallbacks {
 
         switch (opcode) {
             case GAP_READ_SUPPORTED_COMMANDS:
-                supportedCommands(data);
+                supportedCommandsGAP(data);
                 break;
             case GAP_READ_CONTROLLER_INDEX_LIST:
                 controllerIndexList(data);
@@ -614,6 +616,33 @@ public class GAP implements BleManagerCallbacks {
                 break;
             default:
                 tester.response(BTP_SERVICE_ID_GAP, opcode, index, BTP_STATUS_UNKNOWN_CMD);
+                break;
+        }
+    }
+
+    public void supportedCommandsGATT(ByteBuffer data) {
+        byte[] cmds = new byte[4];
+
+        setBit(cmds, GATT_READ_SUPPORTED_COMMANDS);
+        setBit(cmds, GATT_DISC_ALL_PRIM_SVCS);
+
+        tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_READ_SUPPORTED_COMMANDS, CONTROLLER_INDEX,
+                cmds);
+    }
+
+    private void discAllPrimSvcs(ByteBuffer data) {
+    }
+
+    public void handleGATT(byte opcode, byte index, ByteBuffer data) {
+        switch (opcode) {
+            case GATT_READ_SUPPORTED_COMMANDS:
+                supportedCommandsGATT(data);
+                break;
+            case GATT_DISC_ALL_PRIM_SVCS:
+                discAllPrimSvcs(data);
+                break;
+            default:
+                tester.response(BTP_SERVICE_ID_GATT, opcode, index, BTP_STATUS_UNKNOWN_CMD);
                 break;
         }
     }

@@ -211,6 +211,7 @@ public class BTTester {
                 gap.handleGAP(msg.opcode, msg.index, msg.data);
                 break;
             case BTP_SERVICE_ID_GATT:
+                gap.handleGATT(msg.opcode, msg.index, msg.data);
                 break;
             default:
                 response(msg.service, msg.opcode, msg.index, BTP_STATUS_FAILED);
