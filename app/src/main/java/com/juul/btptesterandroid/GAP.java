@@ -3,6 +3,7 @@ package com.juul.btptesterandroid;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGattServer;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseData;
@@ -14,6 +15,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.ParcelUuid;
 import android.util.Log;
+
+import com.juul.btptesterandroid.gatt.GattDBService;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -469,15 +472,6 @@ public class GAP implements BleManagerCallbacks {
     @Override
     public void onDeviceConnected(@NonNull BluetoothDevice device) {
         Log.d("GAP", String.format("onDeviceConnected %s", device));
-        BTP.GapDeviceConnectedEv ev = new BTP.GapDeviceConnectedEv();
-
-        ev.addressType = 0x01; /* assume random */
-
-        byte[] addr = btAddrToBytes(device.getAddress());
-        System.arraycopy(addr, 0, ev.address, 0, ev.address.length);
-
-        tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_EV_DEVICE_CONNECTED,
-                CONTROLLER_INDEX, ev.toBytes());
     }
 
     @Override
@@ -514,6 +508,15 @@ public class GAP implements BleManagerCallbacks {
     @Override
     public void onDeviceReady(@NonNull BluetoothDevice device) {
         Log.d("GAP", String.format("onDeviceReady %s", device));
+        BTP.GapDeviceConnectedEv ev = new BTP.GapDeviceConnectedEv();
+
+        ev.addressType = 0x01; /* assume random */
+
+        byte[] addr = btAddrToBytes(device.getAddress());
+        System.arraycopy(addr, 0, ev.address, 0, ev.address.length);
+
+        tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_EV_DEVICE_CONNECTED,
+                CONTROLLER_INDEX, ev.toBytes());
     }
 
     @Override
@@ -631,6 +634,28 @@ public class GAP implements BleManagerCallbacks {
     }
 
     private void discAllPrimSvcs(ByteBuffer data) {
+        Log.d("GATT", "discAllPrimSvcs");
+        BTP.GattDiscAllPrimSvcsRp rp = new BTP.GattDiscAllPrimSvcsRp();
+        List<BTP.GattService> services = new ArrayList<>();
+
+        if (bleConnectionManager.mServices == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_DISC_ALL_PRIM_SVCS, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+
+        for (GattDBService btGattSvc : bleConnectionManager.mServices) {
+            if (!btGattSvc.isPrimary()) {
+                continue;
+            }
+
+            services.add(new BTP.GattService(btGattSvc));
+        }
+
+        rp.services = services.toArray(new BTP.GattService[0]);
+        rp.servicesCount = (byte) services.size();
+        tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_DISC_ALL_PRIM_SVCS, CONTROLLER_INDEX,
+                rp.toBytes());
     }
 
     public void handleGATT(byte opcode, byte index, ByteBuffer data) {

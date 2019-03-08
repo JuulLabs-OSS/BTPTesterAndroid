@@ -8,6 +8,12 @@ import android.bluetooth.BluetoothGattService;
 import android.content.Context;
 import android.util.Log;
 
+import com.juul.btptesterandroid.gatt.GattDBCharacteristic;
+import com.juul.btptesterandroid.gatt.GattDBDescriptor;
+import com.juul.btptesterandroid.gatt.GattDBIncludeService;
+import com.juul.btptesterandroid.gatt.GattDBService;
+
+import java.util.ArrayList;
 import java.util.List;
 
 import androidx.annotation.NonNull;
@@ -17,7 +23,7 @@ import no.nordicsemi.android.ble.Request;
 
 public class BleConnectionManager extends BleManager  {
 
-    public List<BluetoothGattService> mServices = null;
+    public List<GattDBService> mServices;
 
     /**
      * The manager constructor.
@@ -31,6 +37,8 @@ public class BleConnectionManager extends BleManager  {
      */
     public BleConnectionManager(@NonNull Context context) {
         super(context);
+
+        mServices = new ArrayList<>();
     }
 
     @Override
@@ -88,28 +96,40 @@ public class BleConnectionManager extends BleManager  {
 
         @Override
         public boolean isRequiredServiceSupported(@NonNull final BluetoothGatt gatt) {
-            Log.d("GAP", String.format("isRequiredServiceSupported %s", gatt));
-            mServices = gatt.getServices();
+            Log.d("GATT", String.format("isRequiredServiceSupported %s", gatt));
+            int curHandle = 1;
 
             for (BluetoothGattService svc : gatt.getServices()) {
-                Log.d("GAP", String.format("service UUID=%s TYPE=%d",
+                Log.d("GATT", String.format("service UUID=%s TYPE=%d",
                         svc.getUuid(), svc.getType()));
 
+                GattDBService service = new GattDBService(svc);
+
                 for (BluetoothGattService inc : svc.getIncludedServices()) {
-                    Log.d("GAP", String.format("include UUID=%s TYPE=%d",
+                    Log.d("GATT", String.format("include UUID=%s TYPE=%d",
                             inc.getUuid(), inc.getType()));
+
+                    service.addIncludeService(new GattDBIncludeService(inc));
                 }
 
                 for (BluetoothGattCharacteristic chr : svc.getCharacteristics()) {
-                    Log.d("GAP", String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
+                    Log.d("GATT", String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
                             chr.getUuid(), chr.getProperties(), chr.getPermissions()));
 
+                    GattDBCharacteristic characteristic = new GattDBCharacteristic(chr);
+
                     for (BluetoothGattDescriptor dsc : chr.getDescriptors()) {
-                        Log.d("GAP", String.format("descriptor UUID=%s PERMS=%d",
+                        Log.d("GATT", String.format("descriptor UUID=%s PERMS=%d",
                                 dsc.getUuid(), dsc.getPermissions()));
 
+                        characteristic.addDescriptor(new GattDBDescriptor(dsc));
                     }
+
+                    service.addCharacteristic(characteristic);
                 }
+
+                curHandle = service.setHandles(curHandle);
+                mServices.add(service);
             }
 
             return true;

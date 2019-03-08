@@ -21,13 +21,13 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
     @Override
     public void onConnectionStateChange(BluetoothDevice device, int status, int newState) {
         super.onConnectionStateChange(device, status, newState);
-        if (status == BluetoothGatt.GATT_SUCCESS) {
-            if (newState == BluetoothGatt.STATE_CONNECTED) {
-                this.managerCallbacks.onDeviceConnected(device);
-            } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
-                this.managerCallbacks.onDeviceDisconnected(device);
-            }
-        }
+//        if (status == BluetoothGatt.GATT_SUCCESS) {
+//            if (newState == BluetoothGatt.STATE_CONNECTED) {
+//                this.managerCallbacks.onDeviceReady(device);
+//            } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+//                this.managerCallbacks.onDeviceDisconnected(device);
+//            }
+//        }
     }
 
     @Override

@@ -1,9 +1,12 @@
 package com.juul.btptesterandroid;
 
+import com.juul.btptesterandroid.gatt.GattDBService;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public final class BTP {
     public static final int HDR_LEN = 5;
@@ -429,6 +432,19 @@ public final class BTP {
         byte uuidLen;
         byte[] uuid;
 
+        public GattService(GattDBService svc) {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(16);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            startHandle = (short) svc.getStartHandle();
+            endHandle = (short) svc.getEndHandle();
+
+            UUID svcUUID = svc.getService().getUuid();
+            byteBuffer.putLong(svcUUID.getLeastSignificantBits());
+            byteBuffer.putLong(svcUUID.getMostSignificantBits());
+            uuid = byteBuffer.array();
+            uuidLen = 16;
+        }
+
         public GattService(short startHandle, short endHandle,
                            byte[] uuid) {
             this.startHandle = startHandle;
@@ -439,6 +455,7 @@ public final class BTP {
 
         public byte[] toBytes() {
             ByteBuffer byteBuffer = ByteBuffer.allocate(2 + 2 + 1 + uuidLen);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
 
             byteBuffer.putShort(startHandle);
             byteBuffer.putShort(endHandle);
@@ -476,9 +493,9 @@ public final class BTP {
         byte servicesCount;
         GattService[] services;
 
-        public GattDiscAllPrimSvcsRp(GattService[] services) {
-            this.servicesCount = (byte) services.length;
-            this.services = services;
+        public GattDiscAllPrimSvcsRp() {
+            this.servicesCount = 0;
+            this.services = null;
         }
 
         public byte[] toBytes() {
