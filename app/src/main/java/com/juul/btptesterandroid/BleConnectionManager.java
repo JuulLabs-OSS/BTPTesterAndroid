@@ -2,8 +2,13 @@ package com.juul.btptesterandroid;
 
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
+import android.bluetooth.BluetoothGattService;
 import android.content.Context;
 import android.util.Log;
+
+import java.util.List;
 
 import androidx.annotation.NonNull;
 import no.nordicsemi.android.ble.BleManager;
@@ -11,6 +16,8 @@ import no.nordicsemi.android.ble.BleManagerCallbacks;
 import no.nordicsemi.android.ble.Request;
 
 public class BleConnectionManager extends BleManager  {
+
+    public List<BluetoothGattService> mServices = null;
 
     /**
      * The manager constructor.
@@ -81,6 +88,30 @@ public class BleConnectionManager extends BleManager  {
 
         @Override
         public boolean isRequiredServiceSupported(@NonNull final BluetoothGatt gatt) {
+            Log.d("GAP", String.format("isRequiredServiceSupported %s", gatt));
+            mServices = gatt.getServices();
+
+            for (BluetoothGattService svc : gatt.getServices()) {
+                Log.d("GAP", String.format("service UUID=%s TYPE=%d",
+                        svc.getUuid(), svc.getType()));
+
+                for (BluetoothGattService inc : svc.getIncludedServices()) {
+                    Log.d("GAP", String.format("include UUID=%s TYPE=%d",
+                            inc.getUuid(), inc.getType()));
+                }
+
+                for (BluetoothGattCharacteristic chr : svc.getCharacteristics()) {
+                    Log.d("GAP", String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
+                            chr.getUuid(), chr.getProperties(), chr.getPermissions()));
+
+                    for (BluetoothGattDescriptor dsc : chr.getDescriptors()) {
+                        Log.d("GAP", String.format("descriptor UUID=%s PERMS=%d",
+                                dsc.getUuid(), dsc.getPermissions()));
+
+                    }
+                }
+            }
+
             return true;
         }
 
