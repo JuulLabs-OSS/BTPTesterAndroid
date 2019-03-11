@@ -48,6 +48,7 @@ public class BTTester {
 
     public void init() {
         wsServer = new BTPWebSockerServer(PORT, adapter);
+        wsServer.setReuseAddr(true);
         wsServer.start();
     }
 
@@ -90,6 +91,8 @@ public class BTTester {
             // some errors like port binding failed may not be assignable to a specific websocket
             if (conn == null) {
                 socket = null;
+            } else {
+                conn.close();
             }
         }
 
@@ -227,11 +230,7 @@ public class BTTester {
         if (socket != null && socket.isOpen()) {
             socket.send(bytes);
         } else {
-            try {
-                throw new Exception("WebSocket is closed");
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            Log.e("TAG", "WebSocket is closed");
         }
     }
 
