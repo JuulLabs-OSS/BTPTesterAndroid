@@ -515,4 +515,60 @@ public final class BTP {
         }
     }
 
+    public static final byte GATT_DISC_PRIM_UUID = 0x0c;
+
+    public static class GattDiscPrimUuidCmd {
+        byte addressType;
+        byte[] address;
+        byte uuidLen;
+        byte[] uuid;
+
+        public GattDiscPrimUuidCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+
+            uuidLen = byteBuffer.get();
+            uuid = new byte[uuidLen];
+
+            byteBuffer.get(uuid, 0, uuidLen);
+            Utils.reverseBytes(uuid);
+        }
+
+        public static GattDiscPrimUuidCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 10) {
+                return null;
+            }
+
+            return new GattDiscPrimUuidCmd(byteBuffer);
+        }
+    }
+
+    public static class GattDiscPrimUuidRp {
+        byte servicesCount;
+        GattService[] services;
+
+        public GattDiscPrimUuidRp() {
+            this.servicesCount = 0;
+            this.services = null;
+        }
+
+        public byte[] toBytes() {
+            int length = 0;
+            for (GattService service : services) {
+                length += service.toBytes().length;
+            }
+
+            ByteBuffer byteBuffer = ByteBuffer.allocate(1 + length);
+
+            byteBuffer.put(servicesCount);
+            for (GattService service : services) {
+                byteBuffer.put(service.toBytes());
+            }
+
+            return byteBuffer.array();
+        }
+    }
 }
