@@ -1,5 +1,8 @@
 package com.juul.btptesterandroid;
 
+import java.nio.ByteBuffer;
+import java.util.UUID;
+
 public class Utils {
 
     static void setBit(byte[] data, int bit)
@@ -74,5 +77,35 @@ public class Utils {
         byte[] addr = hexStringToByteArray(addrStr);
         reverseBytes(addr);
         return addr;
+    }
+
+    public static final String BT_BASE_UUID_STR = "0000000000001000800000805F9B34FB";
+    public static final byte[] BT_BASE_UUID_BYTE = hexStringToByteArray(BT_BASE_UUID_STR);
+
+    public static UUID btpToUUID(byte[] bytes) {
+        byte[] uuidBytes;
+
+        if (bytes.length != 2 && bytes.length != 4 && bytes.length != 16) {
+            return null;
+        }
+
+        if (bytes.length == 16) {
+            uuidBytes = bytes;
+        } else if (bytes.length == 2) {
+            byte[] uuid = BT_BASE_UUID_BYTE.clone();
+            uuid[2] = bytes[0];
+            uuid[3] = bytes[1];
+            uuidBytes = uuid;
+        } else {
+            byte[] uuid = BT_BASE_UUID_BYTE.clone();
+            uuid[0] = bytes[0];
+            uuid[1] = bytes[1];
+            uuid[2] = bytes[2];
+            uuid[3] = bytes[3];
+            uuidBytes = uuid;
+        }
+
+        ByteBuffer byteBuffer = ByteBuffer.wrap(uuidBytes);
+        return new UUID(byteBuffer.getLong(), byteBuffer.getLong());
     }
 }
