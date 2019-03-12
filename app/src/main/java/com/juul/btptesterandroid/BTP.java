@@ -718,11 +718,11 @@ public final class BTP {
         }
     }
 
-    public static class GattDiscAllChrcRp {
+    public static class GattDiscChrcRp {
         byte characteristicsCount;
         GattCharacteristic[] characteristics;
 
-        public GattDiscAllChrcRp() {
+        public GattDiscChrcRp() {
             this.characteristicsCount = 0;
             this.characteristics = null;
         }
@@ -741,6 +741,43 @@ public final class BTP {
             }
 
             return byteBuffer.array();
+        }
+    }
+
+    public static final byte GATT_DISC_CHRC_UUID = 0x0f;
+
+    public static class GattDiscChrcUuidCmd {
+        byte addressType;
+        byte[] address;
+        short startHandle;
+        short endHandle;
+        byte uuidLen;
+        byte[] uuid;
+
+        public GattDiscChrcUuidCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            startHandle = byteBuffer.getShort();
+            endHandle = byteBuffer.getShort();
+
+            uuidLen = byteBuffer.get();
+            uuid = new byte[uuidLen];
+
+            byteBuffer.get(uuid, 0, uuidLen);
+            Utils.reverseBytes(uuid);
+        }
+
+        public static GattDiscChrcUuidCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 14) {
+                return null;
+            }
+
+            return new GattDiscChrcUuidCmd(byteBuffer);
         }
     }
 }

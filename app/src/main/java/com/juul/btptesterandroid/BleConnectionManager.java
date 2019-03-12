@@ -121,13 +121,23 @@ public class BleConnectionManager extends BleManager  {
 
         for (GattDBService svc : mServices) {
             for (GattDBCharacteristic chr : svc.getCharacteristics()) {
-
-                BluetoothGattCharacteristic chrcs = chr.getCharacteristic();
-                Log.d("GATT", String.format("characteristic defHandle=%d valueHandle=%d " +
-                                "UUID=%s PROPS=%d PERMS=%d",
-                        chr.getDefHandle(), chr.getValHandle(),
-                        chrcs.getUuid(), chrcs.getProperties(), chrcs.getPermissions()));
                 if (chr.getDefHandle() >= startHandle && chr.getDefHandle() <= endHandle) {
+                    allChrcs.add(chr);
+                }
+            }
+        }
+
+        return  allChrcs;
+    }
+
+    public List<GattDBCharacteristic> getCharacteristicByUUID(int startHandle, int endHandle,
+                                                              UUID uuid) {
+        List<GattDBCharacteristic> allChrcs = new ArrayList<>();
+
+        for (GattDBService svc : mServices) {
+            for (GattDBCharacteristic chr : svc.getCharacteristics()) {
+                if (chr.getDefHandle() >= startHandle && chr.getDefHandle() <= endHandle &&
+                        chr.getCharacteristic().getUuid().equals(uuid)) {
                     allChrcs.add(chr);
                 }
             }

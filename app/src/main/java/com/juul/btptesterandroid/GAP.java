@@ -3,7 +3,6 @@ package com.juul.btptesterandroid;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGattServer;
-import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseData;
@@ -74,6 +73,7 @@ import static com.juul.btptesterandroid.BTP.GAP_STOP_DISCOVERY;
 import static com.juul.btptesterandroid.BTP.GAP_UNPAIR;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_CHRC;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_PRIM_SVCS;
+import static com.juul.btptesterandroid.BTP.GATT_DISC_CHRC_UUID;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_PRIM_UUID;
 import static com.juul.btptesterandroid.BTP.GATT_READ_SUPPORTED_COMMANDS;
 import static com.juul.btptesterandroid.Utils.btAddrToBytes;
@@ -697,10 +697,37 @@ public class GAP implements BleManagerCallbacks {
             characteristics.add(new BTP.GattCharacteristic(btGattChr));
         }
 
-        BTP.GattDiscAllChrcRp rp = new BTP.GattDiscAllChrcRp();
+        BTP.GattDiscChrcRp rp = new BTP.GattDiscChrcRp();
         rp.characteristics = characteristics.toArray(new BTP.GattCharacteristic[0]);
         rp.characteristicsCount = (byte) characteristics.size();
         tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_DISC_ALL_CHRC, CONTROLLER_INDEX,
+                rp.toBytes());
+    }
+
+    private void discChrcUuid(ByteBuffer data) {
+        Log.d("GATT", "discChrcUuid");
+        BTP.GattDiscChrcUuidCmd cmd = BTP.GattDiscChrcUuidCmd.parse(data);
+        if (cmd == null || (cmd.uuidLen != 2 && cmd.uuidLen != 16)) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_DISC_CHRC_UUID, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        UUID uuid = Utils.btpToUUID(cmd.uuid);
+        Log.d("GATT", String.format("startHandle=0x%04x endHandle=0x%04x UUID=%s",
+                cmd.startHandle, cmd.endHandle, String.valueOf(uuid)));
+
+        List<BTP.GattCharacteristic> characteristics = new ArrayList<>();
+
+        for (GattDBCharacteristic btGattChr :
+                bleConnectionManager.getCharacteristicByUUID(Short.toUnsignedInt(cmd.startHandle),
+                        Short.toUnsignedInt(cmd.endHandle), uuid)) {
+            characteristics.add(new BTP.GattCharacteristic(btGattChr));
+        }
+
+        BTP.GattDiscChrcRp rp = new BTP.GattDiscChrcRp();
+        rp.characteristics = characteristics.toArray(new BTP.GattCharacteristic[0]);
+        rp.characteristicsCount = (byte) characteristics.size();
+        tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_DISC_CHRC_UUID, CONTROLLER_INDEX,
                 rp.toBytes());
     }
 
@@ -717,6 +744,9 @@ public class GAP implements BleManagerCallbacks {
                 break;
             case GATT_DISC_ALL_CHRC:
                 discAllChrc(data);
+                break;
+            case GATT_DISC_CHRC_UUID:
+                discChrcUuid(data);
                 break;
             default:
                 tester.response(BTP_SERVICE_ID_GATT, opcode, index, BTP_STATUS_UNKNOWN_CMD);
