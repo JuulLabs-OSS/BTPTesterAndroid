@@ -109,7 +109,7 @@ public class BleConnectionManager extends BleManager  {
                     Log.d("GATT", String.format("include UUID=%s TYPE=%d",
                             inc.getUuid(), inc.getType()));
 
-                    service.addIncludeService(new GattDBIncludeService(inc));
+                    service.addIncludeService(new GattDBIncludeService(new GattDBService(inc)));
                 }
 
                 for (BluetoothGattCharacteristic chr : svc.getCharacteristics()) {

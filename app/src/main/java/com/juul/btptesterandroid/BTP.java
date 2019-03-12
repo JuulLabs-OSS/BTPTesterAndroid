@@ -1,11 +1,10 @@
 package com.juul.btptesterandroid;
 
+import com.juul.btptesterandroid.gatt.GattDBIncludeService;
 import com.juul.btptesterandroid.gatt.GattDBService;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 public final class BTP {
@@ -466,6 +465,31 @@ public final class BTP {
         }
     }
 
+    public static class GattIncluded extends GattService {
+        short attHandle;
+
+        public GattIncluded(GattDBIncludeService svc) {
+            super(svc.getService());
+        }
+
+        public GattIncluded(short attHandle, short startHandle, short endHandle,
+                            byte[] uuid) {
+            super(startHandle, endHandle, uuid);
+            this.attHandle = attHandle;
+        }
+
+        public byte[] toBytes() {
+            byte[] bytes = super.toBytes();
+            ByteBuffer byteBuffer = ByteBuffer.allocate(2 + bytes.length);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            byteBuffer.putShort(attHandle);
+            byteBuffer.put(bytes);
+
+            return byteBuffer.array();
+        }
+    }
+
     public static final byte GATT_DISC_ALL_PRIM_SVCS = 0x0b;
 
     public static class GattDiscAllPrimSvcsCmd {
@@ -565,6 +589,63 @@ public final class BTP {
 
             byteBuffer.put(servicesCount);
             for (GattService service : services) {
+                byteBuffer.put(service.toBytes());
+            }
+
+            return byteBuffer.array();
+        }
+    }
+
+    public static final byte GATT_DISC_FIND_INCLUDED = 0x0d;
+
+    public static class GattFindIncludedCmd {
+        byte addressType;
+        byte[] address;
+        byte uuidLen;
+        byte[] uuid;
+
+        public GattFindIncludedCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+
+            uuidLen = byteBuffer.get();
+            uuid = new byte[uuidLen];
+
+            byteBuffer.get(uuid, 0, uuidLen);
+            Utils.reverseBytes(uuid);
+        }
+
+        public static GattFindIncludedCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 10) {
+                return null;
+            }
+
+            return new GattFindIncludedCmd(byteBuffer);
+        }
+    }
+
+    public static class GattFindIncludedRp {
+        byte servicesCount;
+        GattService[] included;
+
+        public GattFindIncludedRp() {
+            this.servicesCount = 0;
+            this.included = null;
+        }
+
+        public byte[] toBytes() {
+            int length = 0;
+            for (GattService service : included) {
+                length += service.toBytes().length;
+            }
+
+            ByteBuffer byteBuffer = ByteBuffer.allocate(1 + length);
+
+            byteBuffer.put(servicesCount);
+            for (GattService service : included) {
                 byteBuffer.put(service.toBytes());
             }
 

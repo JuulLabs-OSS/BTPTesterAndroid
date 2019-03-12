@@ -1,18 +1,16 @@
 package com.juul.btptesterandroid.gatt;
 
-import android.bluetooth.BluetoothGattService;
-
 public class GattDBIncludeService {
 
-    private BluetoothGattService mService;
+    private GattDBService mService;
     private int attHandle;
 
-    public GattDBIncludeService(BluetoothGattService service) {
+    public GattDBIncludeService(GattDBService service) {
         mService = service;
         attHandle = 0;
     }
 
-    public BluetoothGattService getService() {
+    public GattDBService getService() {
         return mService;
     }
 
