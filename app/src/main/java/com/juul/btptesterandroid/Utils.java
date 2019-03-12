@@ -1,6 +1,7 @@
 package com.juul.btptesterandroid;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.UUID;
 
 public class Utils {
@@ -107,5 +108,14 @@ public class Utils {
 
         ByteBuffer byteBuffer = ByteBuffer.wrap(uuidBytes);
         return new UUID(byteBuffer.getLong(), byteBuffer.getLong());
+    }
+
+    public static byte[] UUIDtoBTP(UUID uuid) {
+        ByteBuffer byteBuffer = ByteBuffer.allocate(16);
+        byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+        byteBuffer.putLong(uuid.getLeastSignificantBits());
+        byteBuffer.putLong(uuid.getMostSignificantBits());
+        return byteBuffer.array();
     }
 }

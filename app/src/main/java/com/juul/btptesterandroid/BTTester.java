@@ -222,8 +222,9 @@ public class BTTester {
     }
 
     public void sendMessage(byte service, byte opcode, byte index, byte[] data) {
-        Log.d("TAG", String.format("sendMessage 0x%02x 0x%02x 0x%02x %s",
-                service, opcode, index, Utils.bytesToHex(data)));
+        Log.d("TAG", String.format("sendMessage service: 0x%02x opcode: 0x%02x index: 0x%02x " +
+                        "len: %d data: %s",
+                service, opcode, index, data == null ? 0 : data.length, Utils.bytesToHex(data)));
         BTPMessage message = new BTPMessage(service, opcode, index, data);
         byte[] bytes = message.toByteArray();
 

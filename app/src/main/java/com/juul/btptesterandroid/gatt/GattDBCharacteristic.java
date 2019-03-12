@@ -46,4 +46,8 @@ public class GattDBCharacteristic {
     public int getValHandle() {
         return valHandle;
     }
+
+    public List<GattDBDescriptor> getDescriptors() {
+        return mDescriptors;
+    }
 }

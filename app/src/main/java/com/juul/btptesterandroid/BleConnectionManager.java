@@ -93,7 +93,7 @@ public class BleConnectionManager extends BleManager  {
         }
 
 
-        return  allPrimSvcs;
+        return allPrimSvcs;
     }
 
     public List<GattDBService> getPrimaryServiceByUUID(UUID uuid) {
@@ -112,7 +112,7 @@ public class BleConnectionManager extends BleManager  {
             primSvcsUuid.add(btGattSvc);
         }
 
-        return  primSvcsUuid;
+        return primSvcsUuid;
     }
 
     public List<GattDBCharacteristic> getAllCharacteristics(int startHandle,
@@ -127,7 +127,7 @@ public class BleConnectionManager extends BleManager  {
             }
         }
 
-        return  allChrcs;
+        return allChrcs;
     }
 
     public List<GattDBCharacteristic> getCharacteristicByUUID(int startHandle, int endHandle,
@@ -143,7 +143,23 @@ public class BleConnectionManager extends BleManager  {
             }
         }
 
-        return  allChrcs;
+        return allChrcs;
+    }
+
+    public List<GattDBDescriptor> getAllDescriptors(int startHandle, int endHandle) {
+        List<GattDBDescriptor> allDescs = new ArrayList<>();
+
+        for (GattDBService svc : mServices) {
+            for (GattDBCharacteristic chr : svc.getCharacteristics()) {
+                for (GattDBDescriptor dsc : chr.getDescriptors()) {
+                    if (chr.getDefHandle() >= startHandle && chr.getDefHandle() <= endHandle) {
+                        allDescs.add(dsc);
+                    }
+                }
+            }
+        }
+
+        return allDescs;
     }
 
     /*******************************************************************/

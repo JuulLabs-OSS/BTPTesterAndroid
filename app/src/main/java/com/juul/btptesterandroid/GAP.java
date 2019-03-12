@@ -16,6 +16,7 @@ import android.os.ParcelUuid;
 import android.util.Log;
 
 import com.juul.btptesterandroid.gatt.GattDBCharacteristic;
+import com.juul.btptesterandroid.gatt.GattDBDescriptor;
 import com.juul.btptesterandroid.gatt.GattDBService;
 
 import java.nio.ByteBuffer;
@@ -72,6 +73,7 @@ import static com.juul.btptesterandroid.BTP.GAP_STOP_ADVERTISING;
 import static com.juul.btptesterandroid.BTP.GAP_STOP_DISCOVERY;
 import static com.juul.btptesterandroid.BTP.GAP_UNPAIR;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_CHRC;
+import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_DESC;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_PRIM_SVCS;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_CHRC_UUID;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_PRIM_UUID;
@@ -731,6 +733,32 @@ public class GAP implements BleManagerCallbacks {
                 rp.toBytes());
     }
 
+    private void discAllDesc(ByteBuffer data) {
+        Log.d("GATT", "discAllDesc");
+        BTP.GattDiscAllDescCmd cmd = BTP.GattDiscAllDescCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_DISC_ALL_DESC, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        Log.d("GATT", String.format("startHandle=0x%04x endHandle=0x%04x",
+                cmd.startHandle, cmd.endHandle));
+
+        List<BTP.GattDescriptor> descriptors = new ArrayList<>();
+
+        for (GattDBDescriptor btGattDsc :
+                bleConnectionManager.getAllDescriptors(Short.toUnsignedInt(cmd.startHandle),
+                        Short.toUnsignedInt(cmd.endHandle))) {
+            descriptors.add(new BTP.GattDescriptor(btGattDsc));
+        }
+
+        BTP.GattDiscAllDescRp rp = new BTP.GattDiscAllDescRp();
+        rp.descriptors = descriptors.toArray(new BTP.GattDescriptor[0]);
+        rp.descriptorCount = (byte) descriptors.size();
+        tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_DISC_ALL_DESC, CONTROLLER_INDEX,
+                rp.toBytes());
+    }
+
     public void handleGATT(byte opcode, byte index, ByteBuffer data) {
         switch (opcode) {
             case GATT_READ_SUPPORTED_COMMANDS:
@@ -747,6 +775,9 @@ public class GAP implements BleManagerCallbacks {
                 break;
             case GATT_DISC_CHRC_UUID:
                 discChrcUuid(data);
+                break;
+            case GATT_DISC_ALL_DESC:
+                discAllDesc(data);
                 break;
             default:
                 tester.response(BTP_SERVICE_ID_GATT, opcode, index, BTP_STATUS_UNKNOWN_CMD);
