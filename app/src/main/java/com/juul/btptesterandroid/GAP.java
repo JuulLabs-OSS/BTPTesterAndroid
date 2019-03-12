@@ -16,6 +16,7 @@ import android.content.IntentFilter;
 import android.os.ParcelUuid;
 import android.util.Log;
 
+import com.juul.btptesterandroid.gatt.GattDBCharacteristic;
 import com.juul.btptesterandroid.gatt.GattDBService;
 
 import java.nio.ByteBuffer;
@@ -71,6 +72,7 @@ import static com.juul.btptesterandroid.BTP.GAP_START_DISCOVERY;
 import static com.juul.btptesterandroid.BTP.GAP_STOP_ADVERTISING;
 import static com.juul.btptesterandroid.BTP.GAP_STOP_DISCOVERY;
 import static com.juul.btptesterandroid.BTP.GAP_UNPAIR;
+import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_CHRC;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_PRIM_SVCS;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_PRIM_UUID;
 import static com.juul.btptesterandroid.BTP.GATT_READ_SUPPORTED_COMMANDS;
@@ -637,23 +639,14 @@ public class GAP implements BleManagerCallbacks {
 
     private void discAllPrimSvcs(ByteBuffer data) {
         Log.d("GATT", "discAllPrimSvcs");
-        BTP.GattDiscAllPrimSvcsRp rp = new BTP.GattDiscAllPrimSvcsRp();
+
         List<BTP.GattService> services = new ArrayList<>();
 
-        if (bleConnectionManager.mServices == null) {
-            tester.response(BTP_SERVICE_ID_GATT, GATT_DISC_ALL_PRIM_SVCS, CONTROLLER_INDEX,
-                    BTP_STATUS_FAILED);
-            return;
-        }
-
-        for (GattDBService btGattSvc : bleConnectionManager.mServices) {
-            if (!btGattSvc.isPrimary()) {
-                continue;
-            }
-
+        for (GattDBService btGattSvc : bleConnectionManager.getAllPrimaryServices()) {
             services.add(new BTP.GattService(btGattSvc));
         }
 
+        BTP.GattDiscAllPrimSvcsRp rp = new BTP.GattDiscAllPrimSvcsRp();
         rp.services = services.toArray(new BTP.GattService[0]);
         rp.servicesCount = (byte) services.size();
         tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_DISC_ALL_PRIM_SVCS, CONTROLLER_INDEX,
@@ -663,39 +656,51 @@ public class GAP implements BleManagerCallbacks {
     private void discPrimUuid(ByteBuffer data) {
         Log.d("GATT", "discPrimUuid");
         BTP.GattDiscPrimUuidCmd cmd = BTP.GattDiscPrimUuidCmd.parse(data);
-
         if (cmd == null || (cmd.uuidLen != 2 && cmd.uuidLen != 16)) {
             tester.response(BTP_SERVICE_ID_GATT, GATT_DISC_PRIM_UUID, CONTROLLER_INDEX,
                     BTP_STATUS_FAILED);
             return;
         }
 
-        BTP.GattDiscPrimUuidRp rp = new BTP.GattDiscPrimUuidRp();
+        UUID uuid = Utils.btpToUUID(cmd.uuid);
+        Log.d("GATT", String.format("UUID=%s", String.valueOf(uuid)));
+
         List<BTP.GattService> services = new ArrayList<>();
 
-
-        UUID uuid = Utils.btpToUUID(cmd.uuid);
-        Log.d("GATT", String.format("%s", String.valueOf(uuid)));
-
-        if (bleConnectionManager.mServices == null) {
-            tester.response(BTP_SERVICE_ID_GATT, GATT_DISC_PRIM_UUID, CONTROLLER_INDEX,
-                    BTP_STATUS_FAILED);
-            return;
-        }
-
-        for (GattDBService btGattSvc : bleConnectionManager.mServices) {
-            if (!btGattSvc.isPrimary()) {
-                continue;
-            }
-
-            if (btGattSvc.getService().getUuid().equals(uuid)) {
+        for (GattDBService btGattSvc : bleConnectionManager.getPrimaryServiceByUUID(uuid)) {
                 services.add(new BTP.GattService(btGattSvc));
-            }
         }
 
+        BTP.GattDiscPrimUuidRp rp = new BTP.GattDiscPrimUuidRp();
         rp.services = services.toArray(new BTP.GattService[0]);
         rp.servicesCount = (byte) services.size();
         tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_DISC_PRIM_UUID, CONTROLLER_INDEX,
+                rp.toBytes());
+    }
+
+    private void discAllChrc(ByteBuffer data) {
+        Log.d("GATT", "discAllChrc");
+        BTP.GattDiscAllChrcCmd cmd = BTP.GattDiscAllChrcCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_DISC_ALL_CHRC, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        Log.d("GATT", String.format("startHandle=0x%04x endHandle=0x%04x",
+                cmd.startHandle, cmd.endHandle));
+
+        List<BTP.GattCharacteristic> characteristics = new ArrayList<>();
+
+        for (GattDBCharacteristic btGattChr :
+                bleConnectionManager.getAllCharacteristics(Short.toUnsignedInt(cmd.startHandle),
+                        Short.toUnsignedInt(cmd.endHandle))) {
+            characteristics.add(new BTP.GattCharacteristic(btGattChr));
+        }
+
+        BTP.GattDiscAllChrcRp rp = new BTP.GattDiscAllChrcRp();
+        rp.characteristics = characteristics.toArray(new BTP.GattCharacteristic[0]);
+        rp.characteristicsCount = (byte) characteristics.size();
+        tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_DISC_ALL_CHRC, CONTROLLER_INDEX,
                 rp.toBytes());
     }
 
@@ -709,6 +714,9 @@ public class GAP implements BleManagerCallbacks {
                 break;
             case GATT_DISC_PRIM_UUID:
                 discPrimUuid(data);
+                break;
+            case GATT_DISC_ALL_CHRC:
+                discAllChrc(data);
                 break;
             default:
                 tester.response(BTP_SERVICE_ID_GATT, opcode, index, BTP_STATUS_UNKNOWN_CMD);

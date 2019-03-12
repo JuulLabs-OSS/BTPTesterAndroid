@@ -58,6 +58,10 @@ public class GattDBService {
         return endHandle;
     }
 
+    public List<GattDBCharacteristic> getCharacteristics() {
+        return mCharacteristics;
+    }
+
     public boolean isPrimary() {
         return mService.getType() == BluetoothGattService.SERVICE_TYPE_PRIMARY;
     }

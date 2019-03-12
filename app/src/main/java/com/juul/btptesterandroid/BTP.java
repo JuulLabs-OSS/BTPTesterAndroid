@@ -1,5 +1,6 @@
 package com.juul.btptesterandroid;
 
+import com.juul.btptesterandroid.gatt.GattDBCharacteristic;
 import com.juul.btptesterandroid.gatt.GattDBIncludeService;
 import com.juul.btptesterandroid.gatt.GattDBService;
 
@@ -490,6 +491,41 @@ public final class BTP {
         }
     }
 
+    public static class GattCharacteristic {
+        short definitionHandle;
+        short valueHandle;
+        byte properties;
+        byte uuidLen;
+        byte[] uuid;
+
+        public GattCharacteristic(GattDBCharacteristic chr) {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(16);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            definitionHandle = (short) chr.getDefHandle();
+            valueHandle = (short) chr.getValHandle();
+            properties = (byte) chr.getCharacteristic().getProperties();
+
+            UUID svcUUID = chr.getCharacteristic().getUuid();
+            byteBuffer.putLong(svcUUID.getLeastSignificantBits());
+            byteBuffer.putLong(svcUUID.getMostSignificantBits());
+            uuid = byteBuffer.array();
+            uuidLen = 16;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(2 + 2 + 1 + 1 + uuidLen);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            byteBuffer.putShort(definitionHandle);
+            byteBuffer.putShort(valueHandle);
+            byteBuffer.put(properties);
+            byteBuffer.put(uuidLen);
+            byteBuffer.put(uuid);
+
+            return byteBuffer.array();
+        }
+    }
+
     public static final byte GATT_DISC_ALL_PRIM_SVCS = 0x0b;
 
     public static class GattDiscAllPrimSvcsCmd {
@@ -647,6 +683,61 @@ public final class BTP {
             byteBuffer.put(servicesCount);
             for (GattService service : included) {
                 byteBuffer.put(service.toBytes());
+            }
+
+            return byteBuffer.array();
+        }
+    }
+
+    public static final byte GATT_DISC_ALL_CHRC = 0x0e;
+
+    public static class GattDiscAllChrcCmd {
+        byte addressType;
+        byte[] address;
+        short startHandle;
+        short endHandle;
+
+        public GattDiscAllChrcCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            startHandle = byteBuffer.getShort();
+            endHandle = byteBuffer.getShort();
+        }
+
+        public static GattDiscAllChrcCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 11) {
+                return null;
+            }
+
+            return new GattDiscAllChrcCmd(byteBuffer);
+        }
+    }
+
+    public static class GattDiscAllChrcRp {
+        byte characteristicsCount;
+        GattCharacteristic[] characteristics;
+
+        public GattDiscAllChrcRp() {
+            this.characteristicsCount = 0;
+            this.characteristics = null;
+        }
+
+        public byte[] toBytes() {
+            int length = 0;
+            for (GattCharacteristic characteristic : characteristics) {
+                length += characteristic.toBytes().length;
+            }
+
+            ByteBuffer byteBuffer = ByteBuffer.allocate(1 + length);
+
+            byteBuffer.put(characteristicsCount);
+            for (GattCharacteristic characteristic : characteristics) {
+                byteBuffer.put(characteristic.toBytes());
             }
 
             return byteBuffer.array();
