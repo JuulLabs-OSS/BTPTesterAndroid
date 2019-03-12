@@ -441,11 +441,8 @@ public final class BTP {
             startHandle = (short) svc.getStartHandle();
             endHandle = (short) svc.getEndHandle();
 
-            UUID svcUUID = svc.getService().getUuid();
-            byteBuffer.putLong(svcUUID.getLeastSignificantBits());
-            byteBuffer.putLong(svcUUID.getMostSignificantBits());
-            uuid = byteBuffer.array();
-            uuidLen = 16;
+            uuid = UUIDtoBTP(svc.getService().getUuid());
+            uuidLen = (byte) uuid.length;
         }
 
         public GattService(short startHandle, short endHandle,
@@ -508,11 +505,8 @@ public final class BTP {
             valueHandle = (short) chr.getValHandle();
             properties = (byte) chr.getCharacteristic().getProperties();
 
-            UUID svcUUID = chr.getCharacteristic().getUuid();
-            byteBuffer.putLong(svcUUID.getLeastSignificantBits());
-            byteBuffer.putLong(svcUUID.getMostSignificantBits());
-            uuid = byteBuffer.array();
-            uuidLen = 16;
+            uuid = UUIDtoBTP(chr.getCharacteristic().getUuid());
+            uuidLen = (byte) uuid.length;
         }
 
         public byte[] toBytes() {

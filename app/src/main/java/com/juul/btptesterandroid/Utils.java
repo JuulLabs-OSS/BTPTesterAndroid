@@ -80,8 +80,9 @@ public class Utils {
         return addr;
     }
 
-    public static final String BT_BASE_UUID_STR = "0000000000001000800000805F9B34FB";
-    public static final byte[] BT_BASE_UUID_BYTE = hexStringToByteArray(BT_BASE_UUID_STR);
+    public static final String BT_BASE_UUID_STR = "00000000-0000-1000-8000-00805f9b34fb";
+    public static final byte[] BT_BASE_UUID_BYTE = hexStringToByteArray(
+            BT_BASE_UUID_STR.replace("-", ""));
 
     public static UUID btpToUUID(byte[] bytes) {
         byte[] uuidBytes;
@@ -110,7 +111,25 @@ public class Utils {
         return new UUID(byteBuffer.getLong(), byteBuffer.getLong());
     }
 
+    public static boolean isBluetoothSIGUuid(UUID uuid) {
+        String uuidStr = uuid.toString();
+        String normalizedStr = "00000000" + uuidStr.substring(8);
+        return normalizedStr.equals(BT_BASE_UUID_STR);
+    }
+
     public static byte[] UUIDtoBTP(UUID uuid) {
+        if (isBluetoothSIGUuid(uuid)) {
+            String uuidStr = uuid.toString();
+            String substr = uuidStr.substring(0, 8);
+            byte[] byteuuid = hexStringToByteArray(substr);
+            if (byteuuid[0] == 0 && byteuuid[1] == 0) {
+                return new byte[] {byteuuid[3], byteuuid[2]};
+            } else {
+                reverseBytes(byteuuid);
+                return byteuuid;
+            }
+        }
+
         ByteBuffer byteBuffer = ByteBuffer.allocate(16);
         byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
 
