@@ -152,7 +152,7 @@ public class BleConnectionManager extends BleManager  {
         for (GattDBService svc : mServices) {
             for (GattDBCharacteristic chr : svc.getCharacteristics()) {
                 for (GattDBDescriptor dsc : chr.getDescriptors()) {
-                    if (chr.getDefHandle() >= startHandle && chr.getDefHandle() <= endHandle) {
+                    if (dsc.getHandle() >= startHandle && dsc.getHandle() <= endHandle) {
                         allDescs.add(dsc);
                     }
                 }
