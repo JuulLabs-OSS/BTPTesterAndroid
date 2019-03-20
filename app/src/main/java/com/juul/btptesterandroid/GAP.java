@@ -32,6 +32,7 @@ import no.nordicsemi.android.ble.ConnectRequest;
 import no.nordicsemi.android.ble.DisconnectRequest;
 import no.nordicsemi.android.ble.ReadRequest;
 import no.nordicsemi.android.ble.Request;
+import no.nordicsemi.android.ble.WriteRequest;
 import no.nordicsemi.android.ble.data.Data;
 import no.nordicsemi.android.ble.exception.BluetoothDisabledException;
 import no.nordicsemi.android.ble.exception.DeviceDisconnectedException;
@@ -82,6 +83,7 @@ import static com.juul.btptesterandroid.BTP.GATT_DISC_CHRC_UUID;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_PRIM_UUID;
 import static com.juul.btptesterandroid.BTP.GATT_READ;
 import static com.juul.btptesterandroid.BTP.GATT_READ_SUPPORTED_COMMANDS;
+import static com.juul.btptesterandroid.BTP.GATT_WRITE;
 import static com.juul.btptesterandroid.Utils.btAddrToBytes;
 import static com.juul.btptesterandroid.Utils.clearBit;
 import static com.juul.btptesterandroid.Utils.setBit;
@@ -792,6 +794,32 @@ public class GAP implements BleManagerCallbacks {
         req.with(this::onReadResponse).enqueue();
     }
 
+    private void onWriteResponse(@NonNull final BluetoothDevice device, @NonNull final Data data) {
+        if (data.getValue() == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_WRITE, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+
+        tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_WRITE, CONTROLLER_INDEX,
+                new byte[] {BTP_STATUS_SUCCESS});
+    }
+
+    private void write(ByteBuffer data) {
+        Log.d("GATT", "write");
+        BTP.GattWriteCmd cmd = BTP.GattWriteCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_WRITE, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        Log.d("GATT", String.format("handle=0x%04x", cmd.handle));
+
+        WriteRequest req = bleConnectionManager.gattWrite(Short.toUnsignedInt(cmd.handle),
+                cmd.data);
+        req.with(this::onWriteResponse).enqueue();
+    }
+
     public void handleGATT(byte opcode, byte index, ByteBuffer data) {
         switch (opcode) {
             case GATT_READ_SUPPORTED_COMMANDS:
@@ -814,6 +842,9 @@ public class GAP implements BleManagerCallbacks {
                 break;
             case GATT_READ:
                 read(data);
+                break;
+            case GATT_WRITE:
+                write(data);
                 break;
             default:
                 tester.response(BTP_SERVICE_ID_GATT, opcode, index, BTP_STATUS_UNKNOWN_CMD);

@@ -23,6 +23,7 @@ import no.nordicsemi.android.ble.BleManager;
 import no.nordicsemi.android.ble.BleManagerCallbacks;
 import no.nordicsemi.android.ble.ReadRequest;
 import no.nordicsemi.android.ble.Request;
+import no.nordicsemi.android.ble.WriteRequest;
 
 public class BleConnectionManager extends BleManager  {
 
@@ -217,6 +218,20 @@ public class BleConnectionManager extends BleManager  {
         return null;
     }
 
+    public WriteRequest gattWrite(int handle, byte[] data) {
+        GattDBCharacteristic chr = findCharacteristic(handle);
+        if (chr != null) {
+            return this.writeCharacteristic(chr.getCharacteristic(), data);
+        }
+
+        GattDBDescriptor dsc = findDescriptor(handle);
+        if (dsc != null) {
+            return this.writeDescriptor(dsc.getDescriptor(), data);
+        }
+
+        return null;
+    }
+
     /*******************************************************************/
 
     @Override
@@ -250,8 +265,20 @@ public class BleConnectionManager extends BleManager  {
 
     @NonNull
     @Override
+    protected WriteRequest writeCharacteristic(@Nullable BluetoothGattCharacteristic characteristic, @Nullable byte[] data) {
+        return super.writeCharacteristic(characteristic, data);
+    }
+
+    @NonNull
+    @Override
     protected ReadRequest readDescriptor(@Nullable BluetoothGattDescriptor descriptor) {
         return super.readDescriptor(descriptor);
+    }
+
+    @NonNull
+    @Override
+    protected WriteRequest writeDescriptor(@Nullable BluetoothGattDescriptor descriptor, @Nullable byte[] data) {
+        return super.writeDescriptor(descriptor, data);
     }
 
     @Override

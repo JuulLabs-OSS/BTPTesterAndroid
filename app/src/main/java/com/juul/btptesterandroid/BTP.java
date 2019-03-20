@@ -907,4 +907,63 @@ public final class BTP {
             return byteBuffer.array();
         }
     }
+
+    public static final byte GATT_WRITE = 0x17;
+
+    public static class GattWriteCmd {
+        byte addressType;
+        byte[] address;
+        short handle;
+        short dataLen;
+        byte[] data;
+
+        public GattWriteCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            handle = byteBuffer.getShort();
+
+            dataLen = byteBuffer.getShort();
+
+            data = new byte[dataLen];
+            byteBuffer.get(data, 0, dataLen);
+        }
+
+        public static GattWriteCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 11) {
+                return null;
+            }
+
+            return new GattWriteCmd(byteBuffer);
+        }
+    }
+
+    public static class GattWriteRp {
+        byte attResponse;
+        short dataLen;
+        byte[] data;
+
+        public GattWriteRp() {
+            this.attResponse = 0;
+            this.dataLen = 0;
+            this.data = null;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(1 + 2 + dataLen);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            byteBuffer.put(attResponse);
+            byteBuffer.putShort(dataLen);
+            if (dataLen > 0) {
+                byteBuffer.put(data);
+            }
+
+            return byteBuffer.array();
+        }
+    }
 }
