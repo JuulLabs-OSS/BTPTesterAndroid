@@ -23,7 +23,10 @@ import no.nordicsemi.android.ble.BleManager;
 import no.nordicsemi.android.ble.BleManagerCallbacks;
 import no.nordicsemi.android.ble.ReadRequest;
 import no.nordicsemi.android.ble.Request;
+import no.nordicsemi.android.ble.ValueChangedCallback;
 import no.nordicsemi.android.ble.WriteRequest;
+import no.nordicsemi.android.ble.callback.DataReceivedCallback;
+import no.nordicsemi.android.ble.callback.DataSentCallback;
 
 public class BleConnectionManager extends BleManager  {
 
@@ -204,32 +207,100 @@ public class BleConnectionManager extends BleManager  {
         return null;
     }
 
-    public ReadRequest gattRead(int handle) {
-        GattDBCharacteristic chr = findCharacteristic(handle);
-        if (chr != null) {
-            return this.readCharacteristic(chr.getCharacteristic());
-        }
-
-        GattDBDescriptor dsc = findDescriptor(handle);
-        if (dsc != null) {
-            return this.readDescriptor(dsc.getDescriptor());
+    public GattDBCharacteristic findCCCDCharacteristic(int cccdHandle) {
+        for (GattDBService svc : mServices) {
+            for (GattDBCharacteristic chr : svc.getCharacteristics()) {
+                for (GattDBDescriptor dsc : chr.getDescriptors()) {
+                    Log.d("GATT", String.format("descriptor UUID=%s PERMS=%d HDL=%d",
+                            dsc.getDescriptor().getUuid(),
+                            dsc.getDescriptor().getPermissions(),
+                            dsc.getHandle()));
+                    if (dsc.getHandle() == cccdHandle) {
+                        return chr;
+                    }
+                }
+            }
         }
 
         return null;
     }
 
-    public WriteRequest gattWrite(int handle, byte[] data) {
+    public boolean gattRead(int handle, DataReceivedCallback cb) {
         GattDBCharacteristic chr = findCharacteristic(handle);
         if (chr != null) {
-            return this.writeCharacteristic(chr.getCharacteristic(), data);
+            ReadRequest req = readCharacteristic(chr.getCharacteristic());
+            req.with(cb).enqueue();
+            return true;
         }
 
         GattDBDescriptor dsc = findDescriptor(handle);
         if (dsc != null) {
-            return this.writeDescriptor(dsc.getDescriptor(), data);
+            ReadRequest req = readDescriptor(dsc.getDescriptor());
+            req.with(cb).enqueue();
+            return true;
         }
 
-        return null;
+        return false;
+    }
+
+    public boolean gattWrite(int handle, byte[] data, DataSentCallback cb) {
+        GattDBCharacteristic chr = findCharacteristic(handle);
+        if (chr != null) {
+            WriteRequest req = writeCharacteristic(chr.getCharacteristic(), data);
+            req.with(cb).enqueue();
+            return true;
+        }
+
+        GattDBDescriptor dsc = findDescriptor(handle);
+        if (dsc != null) {
+            WriteRequest req = writeDescriptor(dsc.getDescriptor(), data);
+            req.with(cb).enqueue();
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean configSubscription(int cccdHandle, byte opcode, int enable,
+                                      GAP.NotificationReceivedCallback cb) {
+        GattDBCharacteristic chr = findCCCDCharacteristic(cccdHandle);
+        WriteRequest req;
+        if (chr == null) {
+            return false;
+        }
+
+        if (enable == 0){
+            if (opcode == BTP.GATT_CFG_NOTIFY) {
+                req = disableNotifications(chr.getCharacteristic());
+            } else {
+                req = disableIndications(chr.getCharacteristic());
+            }
+            req.enqueue();
+            return true;
+        }
+
+
+        if (opcode == BTP.GATT_CFG_NOTIFY) {
+            cb.type = 0x01;
+            cb.handle = chr.getValHandle();
+
+            req = enableNotifications(chr.getCharacteristic());
+
+            ValueChangedCallback valueChangedCallback =
+                    setNotificationCallback(chr.getCharacteristic());
+            valueChangedCallback.with(cb);
+        } else {
+            cb.type = 0x02;
+            cb.handle = chr.getValHandle();
+
+            req = enableIndications(chr.getCharacteristic());
+
+            ValueChangedCallback valueChangedCallback =
+                    setIndicationCallback(chr.getCharacteristic());
+            valueChangedCallback.with(cb);
+        }
+        req.enqueue();
+        return true;
     }
 
     /*******************************************************************/
@@ -255,6 +326,42 @@ public class BleConnectionManager extends BleManager  {
     @Override
     protected Request removeBond() {
         return super.removeBond();
+    }
+
+    @NonNull
+    @Override
+    protected ValueChangedCallback setNotificationCallback(@Nullable BluetoothGattCharacteristic characteristic) {
+        return super.setNotificationCallback(characteristic);
+    }
+
+    @NonNull
+    @Override
+    protected ValueChangedCallback setIndicationCallback(@Nullable BluetoothGattCharacteristic characteristic) {
+        return super.setIndicationCallback(characteristic);
+    }
+
+    @NonNull
+    @Override
+    protected WriteRequest enableNotifications(@Nullable BluetoothGattCharacteristic characteristic) {
+        return super.enableNotifications(characteristic);
+    }
+
+    @NonNull
+    @Override
+    protected WriteRequest disableNotifications(@Nullable BluetoothGattCharacteristic characteristic) {
+        return super.disableNotifications(characteristic);
+    }
+
+    @NonNull
+    @Override
+    protected WriteRequest enableIndications(@Nullable BluetoothGattCharacteristic characteristic) {
+        return super.enableIndications(characteristic);
+    }
+
+    @NonNull
+    @Override
+    protected WriteRequest disableIndications(@Nullable BluetoothGattCharacteristic characteristic) {
+        return super.disableIndications(characteristic);
     }
 
     @NonNull

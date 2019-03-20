@@ -30,15 +30,13 @@ import androidx.annotation.NonNull;
 import no.nordicsemi.android.ble.BleManagerCallbacks;
 import no.nordicsemi.android.ble.ConnectRequest;
 import no.nordicsemi.android.ble.DisconnectRequest;
-import no.nordicsemi.android.ble.ReadRequest;
 import no.nordicsemi.android.ble.Request;
-import no.nordicsemi.android.ble.WriteRequest;
+import no.nordicsemi.android.ble.callback.DataReceivedCallback;
 import no.nordicsemi.android.ble.data.Data;
 import no.nordicsemi.android.ble.exception.BluetoothDisabledException;
 import no.nordicsemi.android.ble.exception.DeviceDisconnectedException;
 import no.nordicsemi.android.ble.exception.InvalidRequestException;
 import no.nordicsemi.android.ble.exception.RequestFailedException;
-import no.nordicsemi.android.ble.response.ReadResponse;
 import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat;
 import no.nordicsemi.android.support.v18.scanner.ScanFilter;
 import no.nordicsemi.android.support.v18.scanner.ScanResult;
@@ -76,11 +74,14 @@ import static com.juul.btptesterandroid.BTP.GAP_START_DISCOVERY;
 import static com.juul.btptesterandroid.BTP.GAP_STOP_ADVERTISING;
 import static com.juul.btptesterandroid.BTP.GAP_STOP_DISCOVERY;
 import static com.juul.btptesterandroid.BTP.GAP_UNPAIR;
+import static com.juul.btptesterandroid.BTP.GATT_CFG_INDICATE;
+import static com.juul.btptesterandroid.BTP.GATT_CFG_NOTIFY;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_CHRC;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_DESC;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_PRIM_SVCS;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_CHRC_UUID;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_PRIM_UUID;
+import static com.juul.btptesterandroid.BTP.GATT_EV_NOTIFICATION;
 import static com.juul.btptesterandroid.BTP.GATT_READ;
 import static com.juul.btptesterandroid.BTP.GATT_READ_SUPPORTED_COMMANDS;
 import static com.juul.btptesterandroid.BTP.GATT_WRITE;
@@ -790,8 +791,10 @@ public class GAP implements BleManagerCallbacks {
         }
         Log.d("GATT", String.format("handle=0x%04x", cmd.handle));
 
-        ReadRequest req = bleConnectionManager.gattRead(Short.toUnsignedInt(cmd.handle));
-        req.with(this::onReadResponse).enqueue();
+        if (!bleConnectionManager.gattRead(Short.toUnsignedInt(cmd.handle), this::onReadResponse)) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_READ, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+        }
     }
 
     private void onWriteResponse(@NonNull final BluetoothDevice device, @NonNull final Data data) {
@@ -815,9 +818,61 @@ public class GAP implements BleManagerCallbacks {
         }
         Log.d("GATT", String.format("handle=0x%04x", cmd.handle));
 
-        WriteRequest req = bleConnectionManager.gattWrite(Short.toUnsignedInt(cmd.handle),
-                cmd.data);
-        req.with(this::onWriteResponse).enqueue();
+        if (!bleConnectionManager.gattWrite(Short.toUnsignedInt(cmd.handle), cmd.data,
+                this::onWriteResponse)) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_WRITE, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+        }
+    }
+
+    class NotificationReceivedCallback implements DataReceivedCallback  {
+        int handle = 0;
+        byte type = 0;
+
+        @Override
+        public void onDataReceived(@NonNull final BluetoothDevice device,
+                                   @NonNull final Data data) {
+            BTP.GattNotificationEv ev = new BTP.GattNotificationEv();
+
+            ev.addressType = 0x01; /* assume random */
+            ev.address = btAddrToBytes(device.getAddress());
+            ev.type = this.type;
+            ev.handle = (short) this.handle;
+            byte[] bytes = data.getValue();
+            if (bytes == null) {
+                ev.dataLen = 0;
+                ev.data = null;
+            } else {
+                ev.dataLen = (short) bytes.length;
+                ev.data = bytes;
+            }
+
+            tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_EV_NOTIFICATION, CONTROLLER_INDEX,
+                    ev.toBytes());
+        }
+    }
+
+    private void configSubscription(ByteBuffer data, byte opcode) {
+        Log.d("GATT", "configSubscription");
+        BTP.GattCfgNotifyCmd cmd = BTP.GattCfgNotifyCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GATT, opcode, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        Log.d("GATT", String.format("cccdHandle=0x%04x opcode=0x%02x enable=%d", cmd.cccdHandle,
+                opcode, cmd.enable));
+
+        if (!bleConnectionManager.configSubscription(
+                Short.toUnsignedInt(cmd.cccdHandle),
+                opcode, cmd.enable, new NotificationReceivedCallback())) {
+            tester.response(BTP_SERVICE_ID_GATT, opcode, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+
+        tester.response(BTP_SERVICE_ID_GATT, opcode, CONTROLLER_INDEX,
+                BTP_STATUS_SUCCESS);
     }
 
     public void handleGATT(byte opcode, byte index, ByteBuffer data) {
@@ -845,6 +900,10 @@ public class GAP implements BleManagerCallbacks {
                 break;
             case GATT_WRITE:
                 write(data);
+                break;
+            case GATT_CFG_NOTIFY:
+            case GATT_CFG_INDICATE:
+                configSubscription(data, opcode);
                 break;
             default:
                 tester.response(BTP_SERVICE_ID_GATT, opcode, index, BTP_STATUS_UNKNOWN_CMD);

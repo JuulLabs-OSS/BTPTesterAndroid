@@ -966,4 +966,72 @@ public final class BTP {
             return byteBuffer.array();
         }
     }
+
+    public static final byte GATT_CFG_NOTIFY = 0x1a;
+    public static final byte GATT_CFG_INDICATE = 0x1b;
+
+    public static class GattCfgNotifyCmd {
+        byte addressType;
+        byte[] address;
+        byte enable;
+        short cccdHandle;
+
+        public GattCfgNotifyCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            enable = byteBuffer.get();
+            cccdHandle = byteBuffer.getShort();
+        }
+
+        public static GattCfgNotifyCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 10) {
+                return null;
+            }
+
+            return new GattCfgNotifyCmd(byteBuffer);
+        }
+    }
+
+    public static final byte GATT_EV_NOTIFICATION = (byte) 0x80;
+
+    public static class GattNotificationEv {
+        byte addressType;
+        byte[] address;
+        byte type;
+        short handle;
+        short dataLen;
+        byte[] data;
+
+        public GattNotificationEv() {
+            addressType = 0;
+            address = null;
+            type = 0;
+            handle = 0;
+            dataLen = 0;
+            data = null;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(1 + 6 + 1 + 2 + 2 + dataLen);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            byteBuffer.put(addressType);
+            byteBuffer.put(address);
+            byteBuffer.put(type);
+            byteBuffer.putShort(handle);
+            byteBuffer.putShort(dataLen);
+            if (dataLen > 0) {
+                byteBuffer.put(data);
+            }
+
+            return byteBuffer.array();
+        }
+    }
+
+
 }
