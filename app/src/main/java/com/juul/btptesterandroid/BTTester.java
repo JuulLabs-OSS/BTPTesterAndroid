@@ -17,6 +17,7 @@ import static com.juul.btptesterandroid.BTP.BTP_INDEX_NONE;
 import static com.juul.btptesterandroid.BTP.BTP_SERVICE_ID_CORE;
 import static com.juul.btptesterandroid.BTP.BTP_SERVICE_ID_GAP;
 import static com.juul.btptesterandroid.BTP.BTP_SERVICE_ID_GATT;
+import static com.juul.btptesterandroid.BTP.BTP_STATUS;
 import static com.juul.btptesterandroid.BTP.BTP_STATUS_FAILED;
 import static com.juul.btptesterandroid.BTP.BTP_STATUS_SUCCESS;
 import static com.juul.btptesterandroid.BTP.BTP_STATUS_UNKNOWN_CMD;
@@ -241,7 +242,7 @@ public class BTTester {
             return;
         }
 
-        sendMessage(service, opcode, index, new byte[]{status});
+        sendMessage(service, BTP_STATUS, index, new byte[]{status});
     }
 
     public void cleanup() {
