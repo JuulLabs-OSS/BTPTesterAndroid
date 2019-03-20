@@ -30,11 +30,14 @@ import androidx.annotation.NonNull;
 import no.nordicsemi.android.ble.BleManagerCallbacks;
 import no.nordicsemi.android.ble.ConnectRequest;
 import no.nordicsemi.android.ble.DisconnectRequest;
+import no.nordicsemi.android.ble.ReadRequest;
 import no.nordicsemi.android.ble.Request;
+import no.nordicsemi.android.ble.data.Data;
 import no.nordicsemi.android.ble.exception.BluetoothDisabledException;
 import no.nordicsemi.android.ble.exception.DeviceDisconnectedException;
 import no.nordicsemi.android.ble.exception.InvalidRequestException;
 import no.nordicsemi.android.ble.exception.RequestFailedException;
+import no.nordicsemi.android.ble.response.ReadResponse;
 import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat;
 import no.nordicsemi.android.support.v18.scanner.ScanFilter;
 import no.nordicsemi.android.support.v18.scanner.ScanResult;
@@ -77,6 +80,7 @@ import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_DESC;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_PRIM_SVCS;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_CHRC_UUID;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_PRIM_UUID;
+import static com.juul.btptesterandroid.BTP.GATT_READ;
 import static com.juul.btptesterandroid.BTP.GATT_READ_SUPPORTED_COMMANDS;
 import static com.juul.btptesterandroid.Utils.btAddrToBytes;
 import static com.juul.btptesterandroid.Utils.clearBit;
@@ -759,6 +763,35 @@ public class GAP implements BleManagerCallbacks {
                 rp.toBytes());
     }
 
+    void onReadResponse(@NonNull final BluetoothDevice device, @NonNull final Data data) {
+        BTP.GattReadRp rp = new BTP.GattReadRp();
+        byte[] readData = data.getValue();
+        if (readData == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_READ, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        rp.dataLen = (short) readData.length;
+        rp.data = readData;
+
+        tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_READ, CONTROLLER_INDEX,
+                rp.toBytes());
+    }
+
+    private void read(ByteBuffer data) {
+        Log.d("GATT", "read");
+        BTP.GattReadCmd cmd = BTP.GattReadCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_READ, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        Log.d("GATT", String.format("handle=0x%04x", cmd.handle));
+
+        ReadRequest req = bleConnectionManager.gattRead(Short.toUnsignedInt(cmd.handle));
+        req.with(this::onReadResponse).enqueue();
+    }
+
     public void handleGATT(byte opcode, byte index, ByteBuffer data) {
         switch (opcode) {
             case GATT_READ_SUPPORTED_COMMANDS:
@@ -778,6 +811,9 @@ public class GAP implements BleManagerCallbacks {
                 break;
             case GATT_DISC_ALL_DESC:
                 discAllDesc(data);
+                break;
+            case GATT_READ:
+                read(data);
                 break;
             default:
                 tester.response(BTP_SERVICE_ID_GATT, opcode, index, BTP_STATUS_UNKNOWN_CMD);

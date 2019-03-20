@@ -18,8 +18,10 @@ import java.util.List;
 import java.util.UUID;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import no.nordicsemi.android.ble.BleManager;
 import no.nordicsemi.android.ble.BleManagerCallbacks;
+import no.nordicsemi.android.ble.ReadRequest;
 import no.nordicsemi.android.ble.Request;
 
 public class BleConnectionManager extends BleManager  {
@@ -162,6 +164,59 @@ public class BleConnectionManager extends BleManager  {
         return allDescs;
     }
 
+    public GattDBCharacteristic findCharacteristic(int handle) {
+        for (GattDBService svc : mServices) {
+            Log.d("GATT", String.format("service UUID=%s TYPE=%d START_HDL=%d END_HDL=%d",
+                    svc.getService().getUuid(), svc.getService().getType(),
+                    svc.getStartHandle(), svc.getEndHandle()));
+            for (GattDBCharacteristic chr : svc.getCharacteristics()) {
+                Log.d("GATT", String.format("characteristic UUID=%s PROPS=%d PERMS=%d" +
+                                "DEF_HDL=%d VAL_HDL=%d",
+                        chr.getCharacteristic().getUuid(), chr.getCharacteristic().getProperties(),
+                        chr.getCharacteristic().getPermissions(),
+                        chr.getDefHandle(), chr.getValHandle()));
+
+                if (chr.getValHandle() == handle) {
+                    return chr;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public GattDBDescriptor findDescriptor(int handle) {
+        for (GattDBService svc : mServices) {
+            for (GattDBCharacteristic chr : svc.getCharacteristics()) {
+                for (GattDBDescriptor dsc : chr.getDescriptors()) {
+                    Log.d("GATT", String.format("descriptor UUID=%s PERMS=%d HDL=%d",
+                            dsc.getDescriptor().getUuid(),
+                            dsc.getDescriptor().getPermissions(),
+                            dsc.getHandle()));
+                    if (dsc.getHandle() == handle) {
+                        return dsc;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public ReadRequest gattRead(int handle) {
+        GattDBCharacteristic chr = findCharacteristic(handle);
+        if (chr != null) {
+            return this.readCharacteristic(chr.getCharacteristic());
+        }
+
+        GattDBDescriptor dsc = findDescriptor(handle);
+        if (dsc != null) {
+            return this.readDescriptor(dsc.getDescriptor());
+        }
+
+        return null;
+    }
+
     /*******************************************************************/
 
     @Override
@@ -185,6 +240,18 @@ public class BleConnectionManager extends BleManager  {
     @Override
     protected Request removeBond() {
         return super.removeBond();
+    }
+
+    @NonNull
+    @Override
+    protected ReadRequest readCharacteristic(@Nullable BluetoothGattCharacteristic characteristic) {
+        return super.readCharacteristic(characteristic);
+    }
+
+    @NonNull
+    @Override
+    protected ReadRequest readDescriptor(@Nullable BluetoothGattDescriptor descriptor) {
+        return super.readDescriptor(descriptor);
     }
 
     @Override

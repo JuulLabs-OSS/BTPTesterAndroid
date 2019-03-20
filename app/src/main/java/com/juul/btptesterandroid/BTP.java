@@ -856,4 +856,55 @@ public final class BTP {
         }
     }
 
+    public static final byte GATT_READ = 0x11;
+
+    public static class GattReadCmd {
+        byte addressType;
+        byte[] address;
+        short handle;
+
+        public GattReadCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            handle = byteBuffer.getShort();
+        }
+
+        public static GattReadCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 9) {
+                return null;
+            }
+
+            return new GattReadCmd(byteBuffer);
+        }
+    }
+
+    public static class GattReadRp {
+        byte attResponse;
+        short dataLen;
+        byte[] data;
+
+        public GattReadRp() {
+            this.attResponse = 0;
+            this.dataLen = 0;
+            this.data = null;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(1 + 2 + dataLen);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            byteBuffer.put(attResponse);
+            byteBuffer.putShort(dataLen);
+            if (dataLen > 0) {
+                byteBuffer.put(data);
+            }
+
+            return byteBuffer.array();
+        }
+    }
 }
