@@ -23,14 +23,14 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import androidx.annotation.NonNull;
 import no.nordicsemi.android.ble.BleManagerCallbacks;
 import no.nordicsemi.android.ble.ConnectRequest;
-import no.nordicsemi.android.ble.DisconnectRequest;
-import no.nordicsemi.android.ble.Request;
 import no.nordicsemi.android.ble.callback.DataReceivedCallback;
 import no.nordicsemi.android.ble.data.Data;
 import no.nordicsemi.android.ble.exception.BluetoothDisabledException;
@@ -97,7 +97,8 @@ public class GAP implements BleManagerCallbacks {
     private BTTester tester = null;
     private BluetoothAdapter bleAdapter = null;
     private BluetoothManager bleManager = null;
-    private BleConnectionManager bleConnectionManager = null;
+
+    private Map<String, BleConnectionManager> connectionsMap;
 
     private BluetoothGattServer gattServer;
     private BTPGattServerCallback gattServerCallback;
@@ -128,8 +129,7 @@ public class GAP implements BleManagerCallbacks {
 
         this.advertiser = BluetoothAdapter.getDefaultAdapter().getBluetoothLeAdvertiser();
 
-        this.bleConnectionManager = new BleConnectionManager(this.context);
-        this.bleConnectionManager.setGattCallbacks(this);
+        connectionsMap = new HashMap<>();
 
         this.context.registerReceiver(incomingPairRequestReceiver,
                 new IntentFilter(BluetoothDevice.ACTION_PAIRING_REQUEST));
@@ -137,13 +137,25 @@ public class GAP implements BleManagerCallbacks {
         return BTP_STATUS_SUCCESS;
     }
 
+    public BleConnectionManager findConnection(String addr) {
+        return connectionsMap.getOrDefault(addr, null);
+    }
+
     public void cleanup() {
         try {
-            if (this.bleConnectionManager.isConnected()) {
-                this.bleConnectionManager.disconnect().await();
+            for (Map.Entry<String, BleConnectionManager> entry : connectionsMap.entrySet()) {
+                BleConnectionManager mng = entry.getValue();
+                if (mng == null) {
+                    continue;
+                }
+
+                if (mng.isConnected()) {
+                    mng.disconnect().await();
+                }
+
+                mng.removeBond().enqueue();
             }
 
-            this.bleConnectionManager.removeBond().enqueue();
         } catch (RequestFailedException e) {
             e.printStackTrace();
         } catch (DeviceDisconnectedException e) {
@@ -405,7 +417,7 @@ public class GAP implements BleManagerCallbacks {
                 .build();
         List<ScanFilter> filters = new ArrayList<>();
         filters.add(new ScanFilter.Builder().setServiceUuid(ParcelUuid.fromString(BTP_TESTER_UUID)).build());
-        String addr = Utils.bytesToHex(cmd.address).replaceAll("..(?!$)", "$0:");
+        String addr = Utils.bytesToHex(cmd.address);
 
         scanCallback.clearCache();
         scanner.startScan(filters, settings, scanCallback);
@@ -433,7 +445,8 @@ public class GAP implements BleManagerCallbacks {
             return;
         }
 
-        BluetoothDevice device = scanCallback.findDiscoveredDevice(addr);
+        String bdAddr = addr.replaceAll("..(?!$)", "$0:");
+        BluetoothDevice device = scanCallback.findDiscoveredDevice(bdAddr);
         if (device == null) {
             Log.d("GAP", "Connect: device not found");
             tester.response(BTP_SERVICE_ID_GAP, GAP_CONNECT, CONTROLLER_INDEX,
@@ -441,8 +454,12 @@ public class GAP implements BleManagerCallbacks {
             return;
         }
 
-        ConnectRequest req = bleConnectionManager.connect(device);
+        BleConnectionManager mng = new BleConnectionManager(this.context);
+        mng.setGattCallbacks(this);
+        ConnectRequest req = mng.connect(device);
         req.enqueue();
+
+        connectionsMap.put(addr, mng);
 
         tester.response(BTP_SERVICE_ID_GAP, GAP_CONNECT,
                 CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
@@ -455,11 +472,11 @@ public class GAP implements BleManagerCallbacks {
                     BTP_STATUS_FAILED);
             return;
         }
-        Log.d("GAP", String.format("disconnect %d %s", cmd.addressType,
-                Utils.bytesToHex(cmd.address)));
+        String addr = Utils.bytesToHex(cmd.address);
+        Log.d("GAP", String.format("disconnect %d %s", cmd.addressType, addr));
 
-        DisconnectRequest req = bleConnectionManager.disconnect();
-        req.enqueue();
+        BleConnectionManager mng = findConnection(addr);
+        mng.disconnect().enqueue();
 
         tester.response(BTP_SERVICE_ID_GAP, GAP_DISCONNECT,
                 CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
@@ -485,11 +502,12 @@ public class GAP implements BleManagerCallbacks {
                     BTP_STATUS_FAILED);
             return;
         }
+        String addr = Utils.bytesToHex(cmd.address);
         Log.d("GAP", String.format("pair %d %s", cmd.addressType,
-                Utils.bytesToHex(cmd.address)));
+                addr));
 
-        Request request = bleConnectionManager.createBond();
-        request.enqueue();
+        BleConnectionManager mng = findConnection(addr);
+        mng.createBond().enqueue();
 
         tester.response(BTP_SERVICE_ID_GAP, GAP_PAIR,
                 CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
@@ -502,11 +520,12 @@ public class GAP implements BleManagerCallbacks {
                     BTP_STATUS_FAILED);
             return;
         }
+        String addr = Utils.bytesToHex(cmd.address);
         Log.d("GAP", String.format("unpair %d %s", cmd.addressType,
-                Utils.bytesToHex(cmd.address)));
+                addr));
 
-        Request request = bleConnectionManager.removeBond();
-        request.enqueue();
+        BleConnectionManager mng = findConnection(addr);
+        mng.removeBond().enqueue();
 
         tester.response(BTP_SERVICE_ID_GAP, GAP_UNPAIR,
                 CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
@@ -718,10 +737,19 @@ public class GAP implements BleManagerCallbacks {
 
     private void discAllPrimSvcs(ByteBuffer data) {
         Log.d("GATT", "discAllPrimSvcs");
+        BTP.GattDiscAllPrimSvcsCmd cmd = BTP.GattDiscAllPrimSvcsCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GAP, GATT_DISC_ALL_PRIM_SVCS, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        String addr = Utils.bytesToHex(cmd.address);
+        Log.d("GATT", String.format("%d %s", cmd.addressType, addr));
 
+        BleConnectionManager mng = findConnection(addr);
         List<BTP.GattService> services = new ArrayList<>();
 
-        for (GattDBService btGattSvc : bleConnectionManager.getAllPrimaryServices()) {
+        for (GattDBService btGattSvc : mng.getAllPrimaryServices()) {
             services.add(new BTP.GattService(btGattSvc));
         }
 
@@ -742,11 +770,14 @@ public class GAP implements BleManagerCallbacks {
         }
 
         UUID uuid = Utils.btpToUUID(cmd.uuid);
-        Log.d("GATT", String.format("UUID=%s", String.valueOf(uuid)));
+        String addr = Utils.bytesToHex(cmd.address);
+        Log.d("GATT", String.format("%d %s UUID=%s", cmd.addressType, addr,
+                String.valueOf(uuid)));
 
+        BleConnectionManager mng = findConnection(addr);
         List<BTP.GattService> services = new ArrayList<>();
 
-        for (GattDBService btGattSvc : bleConnectionManager.getPrimaryServiceByUUID(uuid)) {
+        for (GattDBService btGattSvc : mng.getPrimaryServiceByUUID(uuid)) {
                 services.add(new BTP.GattService(btGattSvc));
         }
 
@@ -765,13 +796,15 @@ public class GAP implements BleManagerCallbacks {
                     BTP_STATUS_FAILED);
             return;
         }
-        Log.d("GATT", String.format("startHandle=0x%04x endHandle=0x%04x",
-                cmd.startHandle, cmd.endHandle));
+        String addr = Utils.bytesToHex(cmd.address);
+        Log.d("GATT", String.format("%d %s startHandle=0x%04x endHandle=0x%04x",
+                cmd.addressType, addr, cmd.startHandle, cmd.endHandle));
 
+        BleConnectionManager mng = findConnection(addr);
         List<BTP.GattCharacteristic> characteristics = new ArrayList<>();
 
         for (GattDBCharacteristic btGattChr :
-                bleConnectionManager.getAllCharacteristics(Short.toUnsignedInt(cmd.startHandle),
+                mng.getAllCharacteristics(Short.toUnsignedInt(cmd.startHandle),
                         Short.toUnsignedInt(cmd.endHandle))) {
             characteristics.add(new BTP.GattCharacteristic(btGattChr));
         }
@@ -791,14 +824,16 @@ public class GAP implements BleManagerCallbacks {
                     BTP_STATUS_FAILED);
             return;
         }
+        String addr = Utils.bytesToHex(cmd.address);
         UUID uuid = Utils.btpToUUID(cmd.uuid);
-        Log.d("GATT", String.format("startHandle=0x%04x endHandle=0x%04x UUID=%s",
-                cmd.startHandle, cmd.endHandle, String.valueOf(uuid)));
+        Log.d("GATT", String.format("%d %s startHandle=0x%04x endHandle=0x%04x UUID=%s",
+                cmd.addressType, addr, cmd.startHandle, cmd.endHandle, String.valueOf(uuid)));
 
+        BleConnectionManager mng = findConnection(addr);
         List<BTP.GattCharacteristic> characteristics = new ArrayList<>();
 
         for (GattDBCharacteristic btGattChr :
-                bleConnectionManager.getCharacteristicByUUID(Short.toUnsignedInt(cmd.startHandle),
+                mng.getCharacteristicByUUID(Short.toUnsignedInt(cmd.startHandle),
                         Short.toUnsignedInt(cmd.endHandle), uuid)) {
             characteristics.add(new BTP.GattCharacteristic(btGattChr));
         }
@@ -818,13 +853,15 @@ public class GAP implements BleManagerCallbacks {
                     BTP_STATUS_FAILED);
             return;
         }
-        Log.d("GATT", String.format("startHandle=0x%04x endHandle=0x%04x",
-                cmd.startHandle, cmd.endHandle));
+        String addr = Utils.bytesToHex(cmd.address);
+        Log.d("GATT", String.format("%d %s startHandle=0x%04x endHandle=0x%04x",
+                cmd.addressType, addr, cmd.startHandle, cmd.endHandle));
 
+        BleConnectionManager mng = findConnection(addr);
         List<BTP.GattDescriptor> descriptors = new ArrayList<>();
 
         for (GattDBDescriptor btGattDsc :
-                bleConnectionManager.getAllDescriptors(Short.toUnsignedInt(cmd.startHandle),
+                mng.getAllDescriptors(Short.toUnsignedInt(cmd.startHandle),
                         Short.toUnsignedInt(cmd.endHandle))) {
             descriptors.add(new BTP.GattDescriptor(btGattDsc));
         }
@@ -859,9 +896,11 @@ public class GAP implements BleManagerCallbacks {
                     BTP_STATUS_FAILED);
             return;
         }
-        Log.d("GATT", String.format("handle=0x%04x", cmd.handle));
+        String addr = Utils.bytesToHex(cmd.address);
+        Log.d("GATT", String.format("%d %s handle=0x%04x", cmd.addressType, addr, cmd.handle));
 
-        if (!bleConnectionManager.gattRead(Short.toUnsignedInt(cmd.handle), this::onReadResponse)) {
+        BleConnectionManager mng = findConnection(addr);
+        if (!mng.gattRead(Short.toUnsignedInt(cmd.handle), this::onReadResponse)) {
             tester.response(BTP_SERVICE_ID_GATT, GATT_READ, CONTROLLER_INDEX,
                     BTP_STATUS_FAILED);
         }
@@ -886,9 +925,11 @@ public class GAP implements BleManagerCallbacks {
                     BTP_STATUS_FAILED);
             return;
         }
-        Log.d("GATT", String.format("handle=0x%04x", cmd.handle));
+        String addr = Utils.bytesToHex(cmd.address);
+        Log.d("GATT", String.format("%d %s handle=0x%04x", cmd.addressType, addr, cmd.handle));
 
-        if (!bleConnectionManager.gattWrite(Short.toUnsignedInt(cmd.handle), cmd.data,
+        BleConnectionManager mng = findConnection(addr);
+        if (!mng.gattWrite(Short.toUnsignedInt(cmd.handle), cmd.data,
                 this::onWriteResponse)) {
             tester.response(BTP_SERVICE_ID_GATT, GATT_WRITE, CONTROLLER_INDEX,
                     BTP_STATUS_FAILED);
@@ -930,10 +971,12 @@ public class GAP implements BleManagerCallbacks {
                     BTP_STATUS_FAILED);
             return;
         }
-        Log.d("GATT", String.format("cccdHandle=0x%04x opcode=0x%02x enable=%d", cmd.cccdHandle,
-                opcode, cmd.enable));
+        String addr = Utils.bytesToHex(cmd.address);
+        Log.d("GATT", String.format("%d %s cccdHandle=0x%04x opcode=0x%02x enable=%d",
+                cmd.addressType, addr, cmd.cccdHandle, opcode, cmd.enable));
 
-        if (!bleConnectionManager.configSubscription(
+        BleConnectionManager mng = findConnection(addr);
+        if (!mng.configSubscription(
                 Short.toUnsignedInt(cmd.cccdHandle),
                 opcode, cmd.enable, new NotificationReceivedCallback())) {
             tester.response(BTP_SERVICE_ID_GATT, opcode, CONTROLLER_INDEX,
