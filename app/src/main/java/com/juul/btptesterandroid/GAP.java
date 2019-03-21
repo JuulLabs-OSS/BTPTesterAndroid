@@ -110,6 +110,68 @@ public class GAP implements BleManagerCallbacks {
     private byte[] supportedSettings = new byte[4];
     private byte[] currentSettings = new byte[4];
 
+    public byte init(Context context, BTTester tester, BluetoothAdapter bleAdapter,
+                     BluetoothManager bleManager) {
+        this.context = context;
+        this.tester = tester;
+        this.bleAdapter = bleAdapter;
+        this.bleManager = bleManager;
+
+        this.gattServerCallback = new BTPGattServerCallback(this);
+        this.gattServer = this.bleManager.openGattServer(context, gattServerCallback);
+        if (this.gattServer == null) {
+            return BTP_STATUS_FAILED;
+        }
+
+        this.scanner = BluetoothLeScannerCompat.getScanner();
+        this.scanCallback = new ScanConnectCallback();
+
+        this.advertiser = BluetoothAdapter.getDefaultAdapter().getBluetoothLeAdvertiser();
+
+        this.bleConnectionManager = new BleConnectionManager(this.context);
+        this.bleConnectionManager.setGattCallbacks(this);
+
+        this.context.registerReceiver(incomingPairRequestReceiver,
+                new IntentFilter(BluetoothDevice.ACTION_PAIRING_REQUEST));
+
+        return BTP_STATUS_SUCCESS;
+    }
+
+    public void cleanup() {
+        try {
+            if (this.bleConnectionManager.isConnected()) {
+                this.bleConnectionManager.disconnect().await();
+            }
+
+            this.bleConnectionManager.removeBond().enqueue();
+        } catch (RequestFailedException e) {
+            e.printStackTrace();
+        } catch (DeviceDisconnectedException e) {
+            e.printStackTrace();
+        } catch (BluetoothDisabledException e) {
+            e.printStackTrace();
+        } catch (InvalidRequestException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        if (gattServer != null) {
+            gattServer.clearServices();
+            gattServer.close();
+        }
+
+        if (advertiseCallback != null) {
+            this.advertiser.stopAdvertising(advertiseCallback);
+        }
+
+        this.context.unregisterReceiver(incomingPairRequestReceiver);
+    }
+
+    public byte unregister() {
+        return BTP_STATUS_SUCCESS;
+    }
+
     public void supportedCommandsGAP(ByteBuffer data) {
         byte[] cmds = new byte[3];
 
@@ -917,67 +979,5 @@ public class GAP implements BleManagerCallbacks {
                 tester.response(BTP_SERVICE_ID_GATT, opcode, index, BTP_STATUS_UNKNOWN_CMD);
                 break;
         }
-    }
-
-    public byte init(Context context, BTTester tester, BluetoothAdapter bleAdapter,
-                     BluetoothManager bleManager) {
-        this.context = context;
-        this.tester = tester;
-        this.bleAdapter = bleAdapter;
-        this.bleManager = bleManager;
-
-        this.gattServerCallback = new BTPGattServerCallback(this);
-        this.gattServer = this.bleManager.openGattServer(context, gattServerCallback);
-        if (this.gattServer == null) {
-            return BTP_STATUS_FAILED;
-        }
-
-        this.scanner = BluetoothLeScannerCompat.getScanner();
-        this.scanCallback = new ScanConnectCallback();
-
-        this.advertiser = BluetoothAdapter.getDefaultAdapter().getBluetoothLeAdvertiser();
-
-        this.bleConnectionManager = new BleConnectionManager(this.context);
-        this.bleConnectionManager.setGattCallbacks(this);
-
-        this.context.registerReceiver(incomingPairRequestReceiver,
-                new IntentFilter(BluetoothDevice.ACTION_PAIRING_REQUEST));
-
-        return BTP_STATUS_SUCCESS;
-    }
-
-    public void cleanup() {
-        try {
-            if (this.bleConnectionManager.isConnected()) {
-                this.bleConnectionManager.disconnect().await();
-            }
-
-            this.bleConnectionManager.removeBond().enqueue();
-        } catch (RequestFailedException e) {
-            e.printStackTrace();
-        } catch (DeviceDisconnectedException e) {
-            e.printStackTrace();
-        } catch (BluetoothDisabledException e) {
-            e.printStackTrace();
-        } catch (InvalidRequestException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        if (gattServer != null) {
-            gattServer.clearServices();
-            gattServer.close();
-        }
-
-        if (advertiseCallback != null) {
-            this.advertiser.stopAdvertising(advertiseCallback);
-        }
-
-        this.context.unregisterReceiver(incomingPairRequestReceiver);
-    }
-
-    public byte unregister() {
-        return BTP_STATUS_SUCCESS;
     }
 }
