@@ -641,6 +641,14 @@ public class GAP implements BleManagerCallbacks {
 
         setBit(cmds, GATT_READ_SUPPORTED_COMMANDS);
         setBit(cmds, GATT_DISC_ALL_PRIM_SVCS);
+        setBit(cmds, GATT_DISC_PRIM_UUID);
+        setBit(cmds, GATT_DISC_ALL_CHRC);
+        setBit(cmds, GATT_DISC_CHRC_UUID);
+        setBit(cmds, GATT_DISC_ALL_CHRC);
+        setBit(cmds, GATT_READ);
+        setBit(cmds, GATT_WRITE);
+        setBit(cmds, GATT_CFG_NOTIFY);
+        setBit(cmds, GATT_CFG_INDICATE);
 
         tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_READ_SUPPORTED_COMMANDS, CONTROLLER_INDEX,
                 cmds);
@@ -766,7 +774,7 @@ public class GAP implements BleManagerCallbacks {
                 rp.toBytes());
     }
 
-    void onReadResponse(@NonNull final BluetoothDevice device, @NonNull final Data data) {
+    private void onReadResponse(@NonNull final BluetoothDevice device, @NonNull final Data data) {
         BTP.GattReadRp rp = new BTP.GattReadRp();
         byte[] readData = data.getValue();
         if (readData == null) {
