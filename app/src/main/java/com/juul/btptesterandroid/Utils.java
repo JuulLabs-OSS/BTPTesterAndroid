@@ -80,6 +80,11 @@ public class Utils {
         return addr;
     }
 
+    public static String btpToBdAddr(byte[] bytes) {
+        String hexAddr = Utils.bytesToHex(bytes);
+        return hexAddr.replaceAll("..(?!$)", "$0:");
+    }
+
     public static final String BT_BASE_UUID_STR = "00000000-0000-1000-8000-00805f9b34fb";
     public static final byte[] BT_BASE_UUID_BYTE = hexStringToByteArray(
             BT_BASE_UUID_STR.replace("-", ""));
