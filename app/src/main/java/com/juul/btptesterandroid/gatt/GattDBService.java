@@ -47,7 +47,7 @@ public class GattDBService {
 
         endHandle = curHandle;
 
-        return  endHandle;
+        return endHandle;
     }
 
     public int getStartHandle() {

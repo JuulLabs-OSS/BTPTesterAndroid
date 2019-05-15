@@ -81,7 +81,7 @@ public class BleConnectionManager extends BleManager  {
                 service.addCharacteristic(characteristic);
             }
 
-            curHandle = service.setHandles(curHandle);
+            curHandle = service.setHandles(curHandle) + 1;
             mServices.add(service);
         }
     }
