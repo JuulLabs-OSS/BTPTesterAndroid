@@ -261,6 +261,26 @@ public class BleConnectionManager extends BleManager  {
         return false;
     }
 
+    public boolean gattWriteLong(int handle, int offset, byte[] data, DataSentCallback cb) {
+        GattDBCharacteristic chr = findCharacteristic(handle);
+        if (chr != null) {
+            WriteRequest req = writeCharacteristic(chr.getCharacteristic(), data,
+                    offset, data.length);
+            req.with(cb).enqueue();
+            return true;
+        }
+
+        GattDBDescriptor dsc = findDescriptor(handle);
+        if (dsc != null) {
+            WriteRequest req = writeDescriptor(dsc.getDescriptor(), data, offset, data.length);
+            req.with(cb).enqueue();
+            return true;
+        }
+
+        return false;
+    }
+
+
     public boolean configSubscription(int cccdHandle, byte opcode, int enable,
                                       GAP.NotificationReceivedCallback cb) {
         GattDBCharacteristic chr = findCCCDCharacteristic(cccdHandle);

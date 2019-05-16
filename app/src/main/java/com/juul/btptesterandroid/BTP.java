@@ -908,6 +908,35 @@ public final class BTP {
         }
     }
 
+    public static final byte GATT_READ_LONG = 0x13;
+
+    public static class GattReadLongCmd {
+        byte addressType;
+        byte[] address;
+        short handle;
+        short offset;
+
+        public GattReadLongCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            handle = byteBuffer.getShort();
+            offset = byteBuffer.getShort();
+        }
+
+        public static GattReadLongCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 11) {
+                return null;
+            }
+
+            return new GattReadLongCmd(byteBuffer);
+        }
+    }
+
     public static final byte GATT_WRITE = 0x17;
 
     public static class GattWriteCmd {
@@ -942,28 +971,37 @@ public final class BTP {
         }
     }
 
-    public static class GattWriteRp {
-        byte attResponse;
+    public static final byte GATT_WRITE_LONG = 0x18;
+
+    public static class GattWriteLongCmd {
+        byte addressType;
+        byte[] address;
+        short handle;
+        short offset;
         short dataLen;
         byte[] data;
 
-        public GattWriteRp() {
-            this.attResponse = 0;
-            this.dataLen = 0;
-            this.data = null;
+        public GattWriteLongCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            handle = byteBuffer.getShort();
+            offset = byteBuffer.getShort();
+            dataLen = byteBuffer.getShort();
+            data = new byte[dataLen];
+            byteBuffer.get(data, 0, dataLen);
         }
 
-        public byte[] toBytes() {
-            ByteBuffer byteBuffer = ByteBuffer.allocate(1 + 2 + dataLen);
-            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-
-            byteBuffer.put(attResponse);
-            byteBuffer.putShort(dataLen);
-            if (dataLen > 0) {
-                byteBuffer.put(data);
+        public static GattWriteLongCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 13) {
+                return null;
             }
 
-            return byteBuffer.array();
+            return new GattWriteLongCmd(byteBuffer);
         }
     }
 

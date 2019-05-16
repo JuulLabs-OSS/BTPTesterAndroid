@@ -83,8 +83,10 @@ import static com.juul.btptesterandroid.BTP.GATT_DISC_CHRC_UUID;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_PRIM_UUID;
 import static com.juul.btptesterandroid.BTP.GATT_EV_NOTIFICATION;
 import static com.juul.btptesterandroid.BTP.GATT_READ;
+import static com.juul.btptesterandroid.BTP.GATT_READ_LONG;
 import static com.juul.btptesterandroid.BTP.GATT_READ_SUPPORTED_COMMANDS;
 import static com.juul.btptesterandroid.BTP.GATT_WRITE;
+import static com.juul.btptesterandroid.BTP.GATT_WRITE_LONG;
 import static com.juul.btptesterandroid.Utils.btAddrToBytes;
 import static com.juul.btptesterandroid.Utils.clearBit;
 import static com.juul.btptesterandroid.Utils.setBit;
@@ -928,6 +930,48 @@ public class GAP implements BleManagerCallbacks {
         }
     }
 
+    private void onReadLongResponse(@NonNull final BluetoothDevice device,
+                                    @NonNull final Data data) {
+        BTP.GattReadRp rp = new BTP.GattReadRp();
+        byte[] readData = data.getValue();
+        if (readData == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_READ_LONG, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        rp.dataLen = (short) readData.length;
+        rp.data = readData;
+
+        tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_READ_LONG, CONTROLLER_INDEX,
+                rp.toBytes());
+    }
+
+    private void readLong(ByteBuffer data) {
+        Log.d("GATT", "readLong");
+        BTP.GattReadLongCmd cmd = BTP.GattReadLongCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_READ_LONG, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        String addr = Utils.btpToBdAddr(cmd.address);
+        Log.d("GATT", String.format("%d %s handle=0x%04x offset=0x%04x", cmd.addressType,
+                addr, cmd.handle, cmd.offset));
+
+        BleConnectionManager mng = findConnection(addr);
+        if (mng == null) {
+            Log.e("GATT", "Connection not found");
+            tester.response(BTP_SERVICE_ID_GATT, GATT_READ_LONG,
+                    CONTROLLER_INDEX, BTP_STATUS_FAILED);
+            return;
+        }
+
+        if (!mng.gattRead(Short.toUnsignedInt(cmd.handle), this::onReadLongResponse)) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_READ_LONG, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+        }
+    }
+
     private void onWriteResponse(@NonNull final BluetoothDevice device, @NonNull final Data data) {
         if (data.getValue() == null) {
             tester.response(BTP_SERVICE_ID_GATT, GATT_WRITE, CONTROLLER_INDEX,
@@ -959,6 +1003,44 @@ public class GAP implements BleManagerCallbacks {
 
         if (!mng.gattWrite(Short.toUnsignedInt(cmd.handle), cmd.data,
                 this::onWriteResponse)) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_WRITE, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+        }
+    }
+
+    private void onWriteLongResponse(@NonNull final BluetoothDevice device,
+                                     @NonNull final Data data) {
+        if (data.getValue() == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_WRITE_LONG, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+
+        tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_WRITE_LONG, CONTROLLER_INDEX,
+                new byte[] {BTP_STATUS_SUCCESS});
+    }
+
+    private void writeLong(ByteBuffer data) {
+        Log.d("GATT", "writeLong");
+        BTP.GattWriteLongCmd cmd = BTP.GattWriteLongCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_WRITE_LONG, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        String addr = Utils.btpToBdAddr(cmd.address);
+        Log.d("GATT", String.format("%d %s handle=0x%04x", cmd.addressType, addr, cmd.handle));
+
+        BleConnectionManager mng = findConnection(addr);
+        if (mng == null) {
+            Log.e("GATT", "Connection not found");
+            tester.response(BTP_SERVICE_ID_GATT, GATT_WRITE_LONG,
+                    CONTROLLER_INDEX, BTP_STATUS_FAILED);
+            return;
+        }
+
+        if (!mng.gattWrite(Short.toUnsignedInt(cmd.handle), cmd.data,
+                this::onWriteLongResponse)) {
             tester.response(BTP_SERVICE_ID_GATT, GATT_WRITE, CONTROLLER_INDEX,
                     BTP_STATUS_FAILED);
         }
@@ -1045,8 +1127,14 @@ public class GAP implements BleManagerCallbacks {
             case GATT_READ:
                 read(data);
                 break;
+            case GATT_READ_LONG:
+                readLong(data);
+                break;
             case GATT_WRITE:
                 write(data);
+                break;
+            case GATT_WRITE_LONG:
+                writeLong(data);
                 break;
             case GATT_CFG_NOTIFY:
             case GATT_CFG_INDICATE:
