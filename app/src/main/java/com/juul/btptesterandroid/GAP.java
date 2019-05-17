@@ -268,6 +268,8 @@ public class GAP implements BleManagerCallbacks {
         public void onStartSuccess(AdvertiseSettings settingsInEffect) {
             super.onStartSuccess(settingsInEffect);
 
+            Log.d("GAP", "Advertise onStartSuccess");
+
             if (opcode == GAP_START_ADVERTISING) {
                 setBit(currentSettings, GAP_SETTINGS_ADVERTISING);
             } else {
@@ -283,6 +285,9 @@ public class GAP implements BleManagerCallbacks {
         @Override
         public void onStartFailure(int errorCode) {
             super.onStartFailure(errorCode);
+
+            Log.d("GAP", "Advertise onStartSuccess");
+
             tester.response(BTP_SERVICE_ID_GAP, GAP_START_ADVERTISING, CONTROLLER_INDEX,
                     BTP_STATUS_FAILED);
         }
