@@ -352,14 +352,19 @@ public class GAP implements BleManagerCallbacks {
 
         AdvertiseSettings settings = new AdvertiseSettings.Builder()
                 .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
-                .setConnectable(true)
-                .build();
-        AdvertiseData advertiseData = new AdvertiseData.Builder()
-                .setIncludeDeviceName(true)
+                .setConnectable(testBit(currentSettings, GAP_SETTINGS_CONNECTABLE) > 0)
                 .build();
 
+        AdvertiseData.Builder adBuilder = new AdvertiseData.Builder();
+        AdvertisingDataParser.parse(adBuilder, cmd.advData);
+        AdvertiseData advertiseData = adBuilder.build();
+
+        AdvertiseData.Builder sdBuilder = new AdvertiseData.Builder();
+        AdvertisingDataParser.parse(sdBuilder, cmd.scanRspData);
+        AdvertiseData scanrspData = sdBuilder.build();
+
         advertiseCallback = new BTPAdvertiseCallback(GAP_START_ADVERTISING);
-        advertiser.startAdvertising(settings, advertiseData, advertiseCallback);
+        advertiser.startAdvertising(settings, advertiseData, scanrspData, advertiseCallback);
     }
 
     public void stopAdvertising(ByteBuffer data) {
