@@ -12,22 +12,35 @@ import no.nordicsemi.android.ble.BleManagerCallbacks;
 public class BTPGattServerCallback extends BluetoothGattServerCallback {
 
     private final BleManagerCallbacks managerCallbacks;
+    private boolean peripheral = false;
 
     public BTPGattServerCallback(BleManagerCallbacks managerCallbacks) {
         super();
         this.managerCallbacks = managerCallbacks;
     }
 
+    public void isPeripheral() {
+        peripheral = true;
+    }
+
+    public void isCentral() {
+        peripheral = false;
+    }
+
     @Override
     public void onConnectionStateChange(BluetoothDevice device, int status, int newState) {
         super.onConnectionStateChange(device, status, newState);
-//        if (status == BluetoothGatt.GATT_SUCCESS) {
-//            if (newState == BluetoothGatt.STATE_CONNECTED) {
-//                this.managerCallbacks.onDeviceReady(device);
-//            } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
-//                this.managerCallbacks.onDeviceDisconnected(device);
-//            }
-//        }
+        if (!peripheral) {
+            return;
+        }
+
+        if (status == BluetoothGatt.GATT_SUCCESS) {
+            if (newState == BluetoothGatt.STATE_CONNECTED) {
+                this.managerCallbacks.onDeviceReady(device);
+            } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                this.managerCallbacks.onDeviceDisconnected(device);
+            }
+        }
     }
 
     @Override

@@ -343,6 +343,8 @@ public class GAP implements BleManagerCallbacks {
         Log.d("GAP", String.format("startAdvertising 0x%02x 0x%02x", cmd.advDataLen,
                 cmd.scanRspDataLen));
 
+        gattServerCallback.isPeripheral();
+
         AdvertiseSettings settings = new AdvertiseSettings.Builder()
                 .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
                 .setConnectable(true)
@@ -423,6 +425,7 @@ public class GAP implements BleManagerCallbacks {
 
         BleConnectionManager mng = new BleConnectionManager(this.context);
         mng.setGattCallbacks(this);
+        gattServerCallback.isCentral();
         ConnectRequest req = mng.connect(device);
         req.enqueue();
 
