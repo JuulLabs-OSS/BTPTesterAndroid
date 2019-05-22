@@ -428,6 +428,155 @@ public final class BTP {
     public static final byte GATT_SERVICE_PRIMARY = 0x00;
     public static final byte GATT_SERVICE_SECONDARY = 0x01;
 
+    public static final byte GATT_ADD_SERVICE = 0x02;
+
+    public static class GattAddServiceCmd {
+        byte type;
+        byte uuidLen;
+        byte[] uuid;
+
+        public GattAddServiceCmd(ByteBuffer byteBuffer) {
+            type = byteBuffer.get();
+            uuidLen = byteBuffer.get();
+            uuid = new byte[uuidLen];
+
+            byteBuffer.get(uuid, 0, uuidLen);
+            Utils.reverseBytes(uuid);
+        }
+
+        public static GattAddServiceCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 4) {
+                return null;
+            }
+
+            return new GattAddServiceCmd(byteBuffer);
+        }
+    }
+
+    public static class GattAddServiceRp {
+        short svcId;
+
+        public GattAddServiceRp() {
+            svcId = 0;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer buf = ByteBuffer.allocate(2);
+            buf.order(ByteOrder.LITTLE_ENDIAN);
+            buf.putShort(svcId);
+            return buf.array();
+        }
+    }
+
+    public static final byte GATT_ADD_CHARACTERISTIC = 0x03;
+
+    public static class GattAddCharacteristicCmd {
+        short svcId;
+        byte properties;
+        byte permissions;
+        byte uuidLen;
+        byte[] uuid;
+
+        public GattAddCharacteristicCmd(ByteBuffer byteBuffer) {
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            svcId = byteBuffer.getShort();
+            properties = byteBuffer.get();
+            permissions = byteBuffer.get();
+            uuidLen = byteBuffer.get();
+            uuid = new byte[uuidLen];
+
+            byteBuffer.get(uuid, 0, uuidLen);
+            Utils.reverseBytes(uuid);
+        }
+
+        public static GattAddCharacteristicCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 7) {
+                return null;
+            }
+
+            return new GattAddCharacteristicCmd(byteBuffer);
+        }
+    }
+
+    public static class GattAddCharacteristicRp {
+        short chrId;
+
+        public GattAddCharacteristicRp() {
+            chrId = 0;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer buf = ByteBuffer.allocate(2);
+            buf.order(ByteOrder.LITTLE_ENDIAN);
+            buf.putShort(chrId);
+            return buf.array();
+        }
+    }
+
+    public static final byte GATT_ADD_DESCRIPTOR = 0x04;
+
+    public static class GattAddDescriptorCmd {
+        short chrId;
+        byte permissions;
+        byte uuidLen;
+        byte[] uuid;
+
+        public GattAddDescriptorCmd(ByteBuffer byteBuffer) {
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            chrId = byteBuffer.getShort();
+            permissions = byteBuffer.get();
+            uuidLen = byteBuffer.get();
+            uuid = new byte[uuidLen];
+
+            byteBuffer.get(uuid, 0, uuidLen);
+            Utils.reverseBytes(uuid);
+        }
+
+        public static GattAddDescriptorCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 6) {
+                return null;
+            }
+
+            return new GattAddDescriptorCmd(byteBuffer);
+        }
+    }
+
+    public static class GattAddDescriptorRp {
+        short dscId;
+
+        public GattAddDescriptorRp() {
+            dscId = 0;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer buf = ByteBuffer.allocate(2);
+            buf.order(ByteOrder.LITTLE_ENDIAN);
+            buf.putShort(dscId);
+            return buf.array();
+        }
+    }
+
+    public static final byte GATT_START_SERVER = 0x07;
+
+    public static class GattStartServerRp {
+        short attrOff;
+        byte attrCount;
+
+        public GattStartServerRp() {
+            attrOff = 0;
+            attrCount = 0;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer buf = ByteBuffer.allocate(3);
+            buf.order(ByteOrder.LITTLE_ENDIAN);
+            buf.putShort(attrOff);
+            buf.put(attrCount);
+            return buf.array();
+        }
+    }
 
     public static class GattService {
         short startHandle;
