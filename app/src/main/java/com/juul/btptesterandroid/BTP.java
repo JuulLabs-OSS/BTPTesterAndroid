@@ -1071,5 +1071,162 @@ public final class BTP {
         }
     }
 
+    public static final byte GATT_GET_ATTRIBUTES = 0x1c;
 
+    public static class GattGetAttributesCmd {
+        short startHandle;
+        short endHandle;
+        byte typeLen;
+        byte[] type;
+
+        public GattGetAttributesCmd(ByteBuffer byteBuffer) {
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            startHandle = byteBuffer.getShort();
+            endHandle = byteBuffer.getShort();
+            typeLen = byteBuffer.get();
+
+            if (typeLen > 0) {
+                type = new byte[typeLen];
+                byteBuffer.get(type, 0, typeLen);
+                Utils.reverseBytes(type);
+            }
+        }
+
+        public static GattGetAttributesCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 5) {
+                return null;
+            }
+
+            return new GattGetAttributesCmd(byteBuffer);
+        }
+    }
+
+    public static class GattAttribute {
+        short handle;
+        byte permission;
+        byte typeLength;
+        byte[] typeUUID;
+
+        public GattAttribute(short handle, byte permission, UUID uuid) {
+            this.handle = handle;
+            this.permission = permission;
+            typeUUID = UUIDtoBTP(uuid);
+            typeLength = (byte) typeUUID.length;
+        }
+
+        public GattAttribute(GattDBService svc) {
+            handle = (short) svc.getStartHandle();
+            permission = 1;
+            if (svc.getService().getType() == GATT_SERVICE_PRIMARY) {
+                typeUUID = Utils.BT_PRI_SVC_TYPE_UUID_BYTES;
+            } else {
+                typeUUID = Utils.BT_SEC_SVC_TYPE_UUID_BYTES;
+            }
+
+            typeLength = (byte) typeUUID.length;
+        }
+
+        public GattAttribute(GattDBIncludeService svc) {
+            handle = (short) svc.getHandle();
+            permission = 1;
+            typeUUID = Utils.BT_INC_SVC_TYPE_UUID_BYTES;
+            typeLength = (byte) typeUUID.length;
+        }
+
+        public GattAttribute(GattDBCharacteristic chr) {
+            handle = (short) chr.getDefHandle();
+            permission = 1;
+            typeUUID = Utils.BT_CHRC_TYPE_UUID_BYTES;
+            typeLength = (byte) typeUUID.length;
+        }
+
+        public GattAttribute(GattDBDescriptor dsc) {
+            handle = (short) dsc.getHandle();
+            permission = 1;
+            typeUUID = UUIDtoBTP(dsc.getDescriptor().getUuid());
+            typeLength = (byte) typeUUID.length;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(2 + 1 + 1 + typeLength);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            byteBuffer.putShort(handle);
+            byteBuffer.put(permission);
+            byteBuffer.put(typeLength);
+            byteBuffer.put(typeUUID);
+
+            return byteBuffer.array();
+        }
+    }
+
+    public static class GattGetAttributtesRp {
+        byte attributesCount;
+        GattAttribute[] attributes;
+
+        public GattGetAttributtesRp() {
+            this.attributesCount = 0;
+            this.attributes = null;
+        }
+
+        public byte[] toBytes() {
+            int length = 0;
+            for (GattAttribute attribute : attributes) {
+                length += attribute.toBytes().length;
+            }
+
+            ByteBuffer byteBuffer = ByteBuffer.allocate(1 + length);
+
+            byteBuffer.put(attributesCount);
+            for (GattAttribute attribute : attributes) {
+                byteBuffer.put(attribute.toBytes());
+            }
+
+            return byteBuffer.array();
+        }
+    }
+
+    public static final byte GATT_GET_ATTRIBUTE_VALUE = 0x1d;
+
+    public static class GattGetAttributeValueCmd {
+        short handle;
+
+        public GattGetAttributeValueCmd(ByteBuffer byteBuffer) {
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            handle = byteBuffer.getShort();
+        }
+
+        public static GattGetAttributeValueCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 2) {
+                return null;
+            }
+
+            return new GattGetAttributeValueCmd(byteBuffer);
+        }
+    }
+
+    public static class GattGetAttributeValueRp {
+        byte attResponse;
+        short valueLength;
+        byte[] value;
+
+        public GattGetAttributeValueRp() {
+            this.attResponse = 0;
+            this.valueLength = 0;
+            this.value = null;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(1 + 2 + valueLength);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            byteBuffer.put(attResponse);
+            byteBuffer.putShort(valueLength);
+            if (value != null) {
+                byteBuffer.put(value);
+            }
+
+            return byteBuffer.array();
+        }
+    }
 }

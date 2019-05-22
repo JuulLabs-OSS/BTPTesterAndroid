@@ -23,4 +23,8 @@ public class GattDBDescriptor {
     public BluetoothGattDescriptor getDescriptor() {
         return mDescriptor;
     }
+
+    public byte[] toBTP() {
+        return getDescriptor().getValue();
+    }
 }

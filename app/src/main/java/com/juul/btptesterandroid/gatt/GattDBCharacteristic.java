@@ -2,8 +2,12 @@ package com.juul.btptesterandroid.gatt;
 
 import android.bluetooth.BluetoothGattCharacteristic;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.juul.btptesterandroid.Utils.UUIDtoBTP;
 
 public class GattDBCharacteristic {
 
@@ -50,4 +54,21 @@ public class GattDBCharacteristic {
     public List<GattDBDescriptor> getDescriptors() {
         return mDescriptors;
     }
+
+    public byte[] toBTPDefinition() {
+        byte[] uuid = UUIDtoBTP(getCharacteristic().getUuid());
+        ByteBuffer buf = ByteBuffer.allocate(1 + 2 + uuid.length);
+        buf.order(ByteOrder.LITTLE_ENDIAN);
+
+        buf.put((byte) getCharacteristic().getProperties());
+        buf.putShort((short) getValHandle());
+        buf.put(uuid);
+
+        return buf.array();
+    }
+
+    public byte[] toBTPValue() {
+        return getCharacteristic().getValue();
+    }
+
 }

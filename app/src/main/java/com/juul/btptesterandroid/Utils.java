@@ -1,7 +1,20 @@
 package com.juul.btptesterandroid;
 
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
+import android.bluetooth.BluetoothGattService;
+import android.util.Log;
+
+import com.juul.btptesterandroid.gatt.GattDBCharacteristic;
+import com.juul.btptesterandroid.gatt.GattDBDescriptor;
+import com.juul.btptesterandroid.gatt.GattDBIncludeService;
+import com.juul.btptesterandroid.gatt.GattDBService;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class Utils {
@@ -142,4 +155,179 @@ public class Utils {
         byteBuffer.putLong(uuid.getMostSignificantBits());
         return byteBuffer.array();
     }
+
+    public static List<GattDBService> initializeGattDB(List<BluetoothGattService> services) {
+        Log.d("GATT", "initializeGattDB");
+        ArrayList<GattDBService> dbServices = new ArrayList<>();
+        int curHandle = 1;
+
+        for (BluetoothGattService svc : services) {
+            Log.d("GATT", String.format("service UUID=%s TYPE=%d",
+                    svc.getUuid(), svc.getType()));
+
+            GattDBService service = new GattDBService(svc);
+
+            for (BluetoothGattService inc : svc.getIncludedServices()) {
+                Log.d("GATT", String.format("include UUID=%s TYPE=%d",
+                        inc.getUuid(), inc.getType()));
+
+                service.addIncludeService(new GattDBIncludeService(new GattDBService(inc)));
+            }
+
+            for (BluetoothGattCharacteristic chr : svc.getCharacteristics()) {
+                Log.d("GATT", String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
+                        chr.getUuid(), chr.getProperties(), chr.getPermissions()));
+
+                GattDBCharacteristic characteristic = new GattDBCharacteristic(chr);
+
+                for (BluetoothGattDescriptor dsc : chr.getDescriptors()) {
+                    Log.d("GATT", String.format("descriptor UUID=%s PERMS=%d",
+                            dsc.getUuid(), dsc.getPermissions()));
+
+                    characteristic.addDescriptor(new GattDBDescriptor(dsc));
+                }
+
+                service.addCharacteristic(characteristic);
+            }
+
+            curHandle = service.setHandles(curHandle) + 1;
+            dbServices.add(service);
+        }
+
+        return dbServices;
+    }
+
+    public static List<BluetoothGattService> getCoreGattServices() {
+        /* TODO: Fix properties and permissions */
+        List<BluetoothGattService> svcs = new ArrayList<>();
+
+        UUID gattSvcUUID = Utils.btpToUUID(new byte[]{ 0x18, 0x01 });
+        BluetoothGattService gattSvc = new BluetoothGattService(gattSvcUUID, 0);
+        svcs.add(gattSvc);
+
+        UUID svcChgCharUUID = Utils.btpToUUID(new byte[]{ 0x2a, 0x05 });
+        BluetoothGattCharacteristic svcChgChar =
+                new BluetoothGattCharacteristic(svcChgCharUUID, 1, 0);
+        gattSvc.addCharacteristic(svcChgChar);
+
+        UUID cccdUUID = Utils.btpToUUID(new byte[]{ 0x29, 0x02 });
+        BluetoothGattDescriptor cccd =
+                new BluetoothGattDescriptor(cccdUUID, 1);
+        svcChgChar.addDescriptor(cccd);
+
+        UUID gapSvcUUID = Utils.btpToUUID(new byte[]{ 0x18, 0x00 });
+        BluetoothGattService gapSvc = new BluetoothGattService(gapSvcUUID, 0);
+        svcs.add(gapSvc);
+
+        UUID devNameChrUUID = Utils.btpToUUID(new byte[]{ 0x2a, 0x00 });
+        BluetoothGattCharacteristic devNameChr =
+                new BluetoothGattCharacteristic(devNameChrUUID, 1, 0);
+        gapSvc.addCharacteristic(devNameChr);
+
+        UUID appearanceChrUUID = Utils.btpToUUID(new byte[]{ 0x2a, 0x01 });
+        BluetoothGattCharacteristic appearanceChr =
+                new BluetoothGattCharacteristic(appearanceChrUUID, 1, 0);
+        gapSvc.addCharacteristic(appearanceChr);
+
+        UUID carChrUUID = Utils.btpToUUID(new byte[]{ 0x2a, (byte) 0xa6});
+        BluetoothGattCharacteristic carChr =
+                new BluetoothGattCharacteristic(carChrUUID, 1, 0);
+        gapSvc.addCharacteristic(carChr);
+
+        return svcs;
+    }
+
+    public static final byte[] BT_PRI_SVC_TYPE_UUID_BYTES = new byte[]{ 0x00, 0x28 };
+    public static final byte[] BT_SEC_SVC_TYPE_UUID_BYTES = new byte[]{ 0x01, 0x28 };
+    public static final byte[] BT_INC_SVC_TYPE_UUID_BYTES = new byte[]{ 0x02, 0x28 };
+    public static final byte[] BT_CHRC_TYPE_UUID_BYTES = new byte[]{ 0x03, 0x28 };
+
+    public static List<BTP.GattAttribute> getGATTAttributes(List<BluetoothGattService> services,
+                                                            int startHandle, int endHandle,
+                                                            UUID typeUUID) {
+        List<GattDBService> dbServices = Utils.initializeGattDB(services);
+        List<BTP.GattAttribute> attrs = new ArrayList<>();
+
+        for (GattDBService svc : dbServices) {
+            Log.d("GATT", String.format("service UUID=%s TYPE=%d",
+                    svc.getService().getUuid(), svc.getService().getType()));
+            attrs.add(new BTP.GattAttribute(svc));
+
+            for (GattDBIncludeService inc : svc.getIncludedServices()) {
+                Log.d("GATT", String.format("include UUID=%s TYPE=%d",
+                        inc.getService().getService().getUuid(),
+                        inc.getService().getService().getType()));
+                attrs.add(new BTP.GattAttribute(inc));
+            }
+
+            for (GattDBCharacteristic chr : svc.getCharacteristics()) {
+                Log.d("GATT", String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
+                        chr.getCharacteristic().getUuid(),
+                        chr.getCharacteristic().getProperties(),
+                        chr.getCharacteristic().getPermissions()));
+                attrs.add(new BTP.GattAttribute(chr));
+
+                for (GattDBDescriptor dsc : chr.getDescriptors()) {
+                    Log.d("GATT", String.format("descriptor UUID=%s PERMS=%d",
+                            dsc.getDescriptor().getUuid(),
+                            dsc.getDescriptor().getPermissions()));
+                    attrs.add(new BTP.GattAttribute(dsc));
+                }
+            }
+        }
+
+        return attrs;
+    }
+
+    public static byte[] gattAttrValToBTP(List<BluetoothGattService> services,
+                                          int handle) {
+        List<GattDBService> dbServices = Utils.initializeGattDB(services);
+
+        for (GattDBService svc : dbServices) {
+            Log.d("GATT", String.format("service UUID=%s TYPE=%d",
+                    svc.getService().getUuid(), svc.getService().getType()));
+
+            if (svc.getStartHandle() == handle) {
+                return svc.toBTP();
+            }
+
+            for (GattDBIncludeService inc : svc.getIncludedServices()) {
+                Log.d("GATT", String.format("include UUID=%s TYPE=%d",
+                        inc.getService().getService().getUuid(),
+                        inc.getService().getService().getType()));
+
+                if (inc.getHandle() == handle) {
+                    return inc.toBTP();
+                }
+            }
+
+            for (GattDBCharacteristic chr : svc.getCharacteristics()) {
+                Log.d("GATT", String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
+                        chr.getCharacteristic().getUuid(),
+                        chr.getCharacteristic().getProperties(),
+                        chr.getCharacteristic().getPermissions()));
+
+                if (chr.getDefHandle() == handle) {
+                    return chr.toBTPDefinition();
+                }
+
+                if (chr.getValHandle() == handle) {
+                    return chr.toBTPValue();
+                }
+
+                for (GattDBDescriptor dsc : chr.getDescriptors()) {
+                    Log.d("GATT", String.format("descriptor UUID=%s PERMS=%d",
+                            dsc.getDescriptor().getUuid(),
+                            dsc.getDescriptor().getPermissions()));
+
+                    if (dsc.getHandle() == handle) {
+                        return dsc.toBTP();
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
 }

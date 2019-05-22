@@ -3,6 +3,7 @@ package com.juul.btptesterandroid;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGattServer;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseData;
@@ -12,8 +13,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.ParcelUuid;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import com.juul.btptesterandroid.gatt.GattDBCharacteristic;
 import com.juul.btptesterandroid.gatt.GattDBDescriptor;
@@ -28,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import androidx.annotation.NonNull;
 import no.nordicsemi.android.ble.BleManagerCallbacks;
 import no.nordicsemi.android.ble.ConnectRequest;
 import no.nordicsemi.android.ble.callback.DataReceivedCallback;
@@ -38,7 +39,6 @@ import no.nordicsemi.android.ble.exception.DeviceDisconnectedException;
 import no.nordicsemi.android.ble.exception.InvalidRequestException;
 import no.nordicsemi.android.ble.exception.RequestFailedException;
 import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat;
-import no.nordicsemi.android.support.v18.scanner.ScanFilter;
 import no.nordicsemi.android.support.v18.scanner.ScanResult;
 import no.nordicsemi.android.support.v18.scanner.ScanSettings;
 
@@ -74,6 +74,7 @@ import static com.juul.btptesterandroid.BTP.GAP_START_DISCOVERY;
 import static com.juul.btptesterandroid.BTP.GAP_STOP_ADVERTISING;
 import static com.juul.btptesterandroid.BTP.GAP_STOP_DISCOVERY;
 import static com.juul.btptesterandroid.BTP.GAP_UNPAIR;
+import static com.juul.btptesterandroid.BTP.GATT_ADD_SERVICE;
 import static com.juul.btptesterandroid.BTP.GATT_CFG_INDICATE;
 import static com.juul.btptesterandroid.BTP.GATT_CFG_NOTIFY;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_CHRC;
@@ -82,6 +83,8 @@ import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_PRIM_SVCS;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_CHRC_UUID;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_PRIM_UUID;
 import static com.juul.btptesterandroid.BTP.GATT_EV_NOTIFICATION;
+import static com.juul.btptesterandroid.BTP.GATT_GET_ATTRIBUTES;
+import static com.juul.btptesterandroid.BTP.GATT_GET_ATTRIBUTE_VALUE;
 import static com.juul.btptesterandroid.BTP.GATT_READ;
 import static com.juul.btptesterandroid.BTP.GATT_READ_LONG;
 import static com.juul.btptesterandroid.BTP.GATT_READ_SUPPORTED_COMMANDS;
@@ -90,10 +93,9 @@ import static com.juul.btptesterandroid.BTP.GATT_WRITE_LONG;
 import static com.juul.btptesterandroid.Utils.btAddrToBytes;
 import static com.juul.btptesterandroid.Utils.clearBit;
 import static com.juul.btptesterandroid.Utils.setBit;
+import static com.juul.btptesterandroid.Utils.testBit;
 
 public class GAP implements BleManagerCallbacks {
-
-    private static final int SCAN_TIMEOUT = 1000;
 
     private Context context;
     private BTTester tester = null;
@@ -122,6 +124,7 @@ public class GAP implements BleManagerCallbacks {
 
         this.gattServerCallback = new BTPGattServerCallback(this);
         this.gattServer = this.bleManager.openGattServer(context, gattServerCallback);
+
         if (this.gattServer == null) {
             return BTP_STATUS_FAILED;
         }
@@ -1117,6 +1120,63 @@ public class GAP implements BleManagerCallbacks {
                 BTP_STATUS_SUCCESS);
     }
 
+    private void getAttributes(ByteBuffer data) {
+        Log.d("GATT", "getAttributes");
+        BTP.GattGetAttributesCmd cmd = BTP.GattGetAttributesCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_GET_ATTRIBUTES, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        Log.d("GATT", String.format("startHandle=0x%04x endHandle=0x%04x typeLen=%d",
+                Short.toUnsignedInt(cmd.startHandle), Short.toUnsignedInt(cmd.endHandle),
+                cmd.typeLen));
+
+        UUID typeUUID = null;
+        if (cmd.typeLen > 0) {
+            typeUUID = Utils.btpToUUID(cmd.type);
+
+        }
+        List<BluetoothGattService> svcs = Utils.getCoreGattServices();
+        svcs.addAll(gattServer.getServices());
+
+        List<BTP.GattAttribute> attributes = Utils.getGATTAttributes(svcs,
+                cmd.startHandle, cmd.endHandle, typeUUID);
+
+        BTP.GattGetAttributtesRp rp = new BTP.GattGetAttributtesRp();
+        rp.attributesCount = (byte) attributes.size();
+        rp.attributes = attributes.toArray(new BTP.GattAttribute[0]);
+
+        tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_GET_ATTRIBUTES, CONTROLLER_INDEX,
+                rp.toBytes());
+    }
+
+    private void getAttributeValue(ByteBuffer data) {
+        Log.d("GATT", "getAttributeValue");
+        BTP.GattGetAttributeValueCmd cmd = BTP.GattGetAttributeValueCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_GET_ATTRIBUTE_VALUE, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        Log.d("GATT", String.format("handl=0x%04x", Short.toUnsignedInt(cmd.handle)));
+
+        List<BluetoothGattService> svcs = Utils.getCoreGattServices();
+        svcs.addAll(gattServer.getServices());
+
+        BTP.GattGetAttributeValueRp rp = new BTP.GattGetAttributeValueRp();
+
+        byte[] val = Utils.gattAttrValToBTP(svcs, Short.toUnsignedInt(cmd.handle));
+
+        if (val != null) {
+            rp.valueLength = (short) val.length;
+            rp.value = val;
+        }
+
+        tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_GET_ATTRIBUTE_VALUE, CONTROLLER_INDEX,
+                rp.toBytes());
+    }
+
     public void handleGATT(byte opcode, byte index, ByteBuffer data) {
         switch (opcode) {
             case GATT_READ_SUPPORTED_COMMANDS:
@@ -1152,6 +1212,12 @@ public class GAP implements BleManagerCallbacks {
             case GATT_CFG_NOTIFY:
             case GATT_CFG_INDICATE:
                 configSubscription(data, opcode);
+                break;
+            case GATT_GET_ATTRIBUTES:
+                getAttributes(data);
+                break;
+            case GATT_GET_ATTRIBUTE_VALUE:
+                getAttributeValue(data);
                 break;
             default:
                 tester.response(BTP_SERVICE_ID_GATT, opcode, index, BTP_STATUS_UNKNOWN_CMD);

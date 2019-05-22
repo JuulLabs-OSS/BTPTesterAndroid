@@ -48,44 +48,6 @@ public class BleConnectionManager extends BleManager  {
         mServices = new ArrayList<>();
     }
 
-    public void initializeGattDB(BluetoothGatt gatt) {
-        mServices.clear();
-        int curHandle = 1;
-
-        for (BluetoothGattService svc : gatt.getServices()) {
-            Log.d("GATT", String.format("service UUID=%s TYPE=%d",
-                    svc.getUuid(), svc.getType()));
-
-            GattDBService service = new GattDBService(svc);
-
-            for (BluetoothGattService inc : svc.getIncludedServices()) {
-                Log.d("GATT", String.format("include UUID=%s TYPE=%d",
-                        inc.getUuid(), inc.getType()));
-
-                service.addIncludeService(new GattDBIncludeService(new GattDBService(inc)));
-            }
-
-            for (BluetoothGattCharacteristic chr : svc.getCharacteristics()) {
-                Log.d("GATT", String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
-                        chr.getUuid(), chr.getProperties(), chr.getPermissions()));
-
-                GattDBCharacteristic characteristic = new GattDBCharacteristic(chr);
-
-                for (BluetoothGattDescriptor dsc : chr.getDescriptors()) {
-                    Log.d("GATT", String.format("descriptor UUID=%s PERMS=%d",
-                            dsc.getUuid(), dsc.getPermissions()));
-
-                    characteristic.addDescriptor(new GattDBDescriptor(dsc));
-                }
-
-                service.addCharacteristic(characteristic);
-            }
-
-            curHandle = service.setHandles(curHandle) + 1;
-            mServices.add(service);
-        }
-    }
-
     public List<GattDBService> getAllPrimaryServices() {
         List<GattDBService> allPrimSvcs = new ArrayList<>();
 
@@ -441,7 +403,7 @@ public class BleConnectionManager extends BleManager  {
         @Override
         public boolean isRequiredServiceSupported(@NonNull final BluetoothGatt gatt) {
             Log.d("GATT", String.format("isRequiredServiceSupported %s", gatt));
-            initializeGattDB(gatt);
+            mServices = Utils.initializeGattDB(gatt.getServices());
             return true;
         }
 

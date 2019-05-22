@@ -2,8 +2,13 @@ package com.juul.btptesterandroid.gatt;
 
 import android.bluetooth.BluetoothGattService;
 
+import com.juul.btptesterandroid.BTP;
+
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.juul.btptesterandroid.Utils.UUIDtoBTP;
 
 public class GattDBService {
 
@@ -62,7 +67,15 @@ public class GattDBService {
         return mCharacteristics;
     }
 
+    public List<GattDBIncludeService> getIncludedServices() {
+        return mIncludes;
+    }
+
     public boolean isPrimary() {
         return mService.getType() == BluetoothGattService.SERVICE_TYPE_PRIMARY;
+    }
+
+    public byte[] toBTP() {
+        return UUIDtoBTP(getService().getUuid());
     }
 }
