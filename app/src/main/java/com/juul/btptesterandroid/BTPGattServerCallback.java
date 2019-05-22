@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattServerCallback;
 import android.bluetooth.BluetoothGattService;
+import android.util.Log;
 
 import no.nordicsemi.android.ble.BleManagerCallbacks;
 
@@ -46,6 +47,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
     @Override
     public void onServiceAdded(int status, BluetoothGattService service) {
         super.onServiceAdded(status, service);
+        Log.d("GATT", "onServiceAdded");
     }
 
     @Override
