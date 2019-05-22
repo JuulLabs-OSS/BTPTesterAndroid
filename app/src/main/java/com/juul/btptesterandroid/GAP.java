@@ -729,11 +729,14 @@ public class GAP implements BleManagerCallbacks {
         setBit(cmds, GATT_DISC_PRIM_UUID);
         setBit(cmds, GATT_DISC_ALL_CHRC);
         setBit(cmds, GATT_DISC_CHRC_UUID);
-        setBit(cmds, GATT_DISC_ALL_CHRC);
+        setBit(cmds, GATT_DISC_ALL_DESC);
         setBit(cmds, GATT_READ);
-        setBit(cmds, GATT_WRITE);
+        setBit(cmds, GATT_READ_LONG);
+        setBit(cmds, GATT_WRITE_LONG);
         setBit(cmds, GATT_CFG_NOTIFY);
         setBit(cmds, GATT_CFG_INDICATE);
+        setBit(cmds, GATT_GET_ATTRIBUTES);
+        setBit(cmds, GATT_GET_ATTRIBUTE_VALUE);
 
         tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_READ_SUPPORTED_COMMANDS, CONTROLLER_INDEX,
                 cmds);
