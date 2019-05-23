@@ -558,6 +558,38 @@ public final class BTP {
         }
     }
 
+    public static final byte GATT_SET_VALUE = 0x06;
+
+    public static class GattSetValueCmd {
+        short attrId;
+        short len;
+        byte[] value;
+
+        public GattSetValueCmd(ByteBuffer byteBuffer) {
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            attrId = byteBuffer.getShort();
+            len = byteBuffer.getShort();
+
+            if (len == 0) {
+                value = null;
+                return;
+            }
+
+            value = new byte[len];
+            byteBuffer.get(value, 0, len);
+        }
+
+        public static GattSetValueCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 4) {
+                return null;
+            }
+
+            return new GattSetValueCmd(byteBuffer);
+        }
+    }
+
+
     public static final byte GATT_START_SERVER = 0x07;
 
     public static class GattStartServerRp {
@@ -1378,4 +1410,32 @@ public final class BTP {
             return byteBuffer.array();
         }
     }
+
+    public static final byte GATT_EV_ATTR_VALUE_CHANGED = (byte) 0x81;
+
+    public static class GattAttrValueChangedEv {
+        short handle;
+        short dataLen;
+        byte[] data;
+
+        public GattAttrValueChangedEv() {
+            handle = 0;
+            dataLen = 0;
+            data = null;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(2 + 2 + dataLen);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            byteBuffer.putShort(handle);
+            byteBuffer.putShort(dataLen);
+            if (dataLen != 0 && data != null) {
+                byteBuffer.put(data);
+            }
+
+            return byteBuffer.array();
+        }
+    }
+
 }

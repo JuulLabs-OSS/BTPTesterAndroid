@@ -86,21 +86,24 @@ import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_DESC;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_PRIM_SVCS;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_CHRC_UUID;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_PRIM_UUID;
+import static com.juul.btptesterandroid.BTP.GATT_EV_ATTR_VALUE_CHANGED;
 import static com.juul.btptesterandroid.BTP.GATT_EV_NOTIFICATION;
 import static com.juul.btptesterandroid.BTP.GATT_GET_ATTRIBUTES;
 import static com.juul.btptesterandroid.BTP.GATT_GET_ATTRIBUTE_VALUE;
 import static com.juul.btptesterandroid.BTP.GATT_READ;
 import static com.juul.btptesterandroid.BTP.GATT_READ_LONG;
 import static com.juul.btptesterandroid.BTP.GATT_READ_SUPPORTED_COMMANDS;
+import static com.juul.btptesterandroid.BTP.GATT_SET_VALUE;
 import static com.juul.btptesterandroid.BTP.GATT_START_SERVER;
 import static com.juul.btptesterandroid.BTP.GATT_WRITE;
 import static com.juul.btptesterandroid.BTP.GATT_WRITE_LONG;
 import static com.juul.btptesterandroid.Utils.btAddrToBytes;
+import static com.juul.btptesterandroid.Utils.bytesToHex;
 import static com.juul.btptesterandroid.Utils.clearBit;
 import static com.juul.btptesterandroid.Utils.setBit;
 import static com.juul.btptesterandroid.Utils.testBit;
 
-public class GAP implements BleManagerCallbacks {
+public class GAP implements BleManagerCallbacks, IGattAttrValueChanged {
 
     private Context context;
     private BTTester tester = null;
@@ -116,7 +119,9 @@ public class GAP implements BleManagerCallbacks {
     private BluetoothLeAdvertiser advertiser;
     private BTPAdvertiseCallback advertiseCallback;
 
+    private int attributeCount;
     private List<BluetoothGattService> addedServices;
+
     private BluetoothGattService lastAddedService;
     private BluetoothGattCharacteristic lastAddedCharacteristic;
     private BluetoothGattDescriptor lastAddedDescriptor;
@@ -134,12 +139,16 @@ public class GAP implements BleManagerCallbacks {
 
         this.gattServerCallback = new BTPGattServerCallback(this);
         this.gattServer = this.bleManager.openGattServer(context, gattServerCallback);
+        this.gattServerCallback.setGattServer(this.gattServer);
+        this.gattServerCallback.setGattAttributeValueChangedCallback(this);
 
         if (this.gattServer == null) {
             return BTP_STATUS_FAILED;
         }
 
+        attributeCount = 0;
         addedServices = new ArrayList<>();
+
         this.scanner = BluetoothLeScannerCompat.getScanner();
         this.scanCallback = new ScanConnectCallback();
 
@@ -767,8 +776,10 @@ public class GAP implements BleManagerCallbacks {
         BluetoothGattService service = new BluetoothGattService(uuid, cmd.type);
         lastAddedService = service;
         addedServices.add(service);
+        ++attributeCount;
 
         BTP.GattAddServiceRp rp = new BTP.GattAddServiceRp();
+        rp.svcId = (short) attributeCount;
         tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_ADD_SERVICE, CONTROLLER_INDEX,
                 rp.toBytes());
     }
@@ -799,8 +810,10 @@ public class GAP implements BleManagerCallbacks {
 
         lastAddedService.addCharacteristic(characteristic);
         lastAddedCharacteristic = characteristic;
+        ++attributeCount;
 
         BTP.GattAddCharacteristicRp rp = new BTP.GattAddCharacteristicRp();
+        rp.chrId = (short) attributeCount;
         tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_ADD_CHARACTERISTIC, CONTROLLER_INDEX,
                 rp.toBytes());
     }
@@ -830,10 +843,30 @@ public class GAP implements BleManagerCallbacks {
 
         lastAddedCharacteristic.addDescriptor(descriptor);
         lastAddedDescriptor = descriptor;
+        ++attributeCount;
 
         BTP.GattAddDescriptorRp rp = new BTP.GattAddDescriptorRp();
+        rp.dscId = (short) attributeCount;
         tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_ADD_DESCRIPTOR, CONTROLLER_INDEX,
                 rp.toBytes());
+    }
+
+    private void setValue(ByteBuffer data) {
+        Log.d("GATT", "setValue");
+
+        BTP.GattSetValueCmd cmd = BTP.GattSetValueCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GAP, GATT_SET_VALUE, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+
+        Log.d("GATT", String.format("id %d value %s", cmd.attrId, bytesToHex(cmd.value)));
+
+        boolean success = gattServerCallback.setValue(cmd.attrId, cmd.value);
+        byte status = success ? BTP_STATUS_SUCCESS : BTP_STATUS_FAILED;
+
+        tester.response(BTP_SERVICE_ID_GATT, GATT_SET_VALUE, CONTROLLER_INDEX, status);
     }
 
     private void startServer(ByteBuffer data) {
@@ -1287,6 +1320,35 @@ public class GAP implements BleManagerCallbacks {
                 rp.toBytes());
     }
 
+    private void sendAttrValueChangedEv(byte[] value) {
+        Log.d("GATT", String.format("sendAttrValueChangedEv %s", bytesToHex(value)));
+        BTP.GattAttrValueChangedEv ev = new BTP.GattAttrValueChangedEv();
+
+        if (value != null) {
+            ev.dataLen = (short) value.length;
+            ev.data = value;
+        }
+
+        tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_EV_ATTR_VALUE_CHANGED,
+                CONTROLLER_INDEX, ev.toBytes());
+
+    }
+
+    @Override
+    public void characteristicValueChanged(BluetoothDevice device,
+                                           BluetoothGattCharacteristic characteristic,
+                                           byte[] value) {
+        sendAttrValueChangedEv(value);
+    }
+
+    @Override
+    public void descriptorValueChanged(BluetoothDevice device,
+                                       BluetoothGattDescriptor descriptor,
+                                       byte[] value) {
+        sendAttrValueChangedEv(value);
+    }
+
+
     public void handleGATT(byte opcode, byte index, ByteBuffer data) {
         switch (opcode) {
             case GATT_READ_SUPPORTED_COMMANDS:
@@ -1300,6 +1362,9 @@ public class GAP implements BleManagerCallbacks {
                 break;
             case GATT_ADD_DESCRIPTOR:
                 addDescriptor(data);
+                break;
+            case GATT_SET_VALUE:
+                setValue(data);
                 break;
             case GATT_START_SERVER:
                 startServer(data);
