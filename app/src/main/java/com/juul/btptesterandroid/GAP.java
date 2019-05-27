@@ -103,7 +103,7 @@ import static com.juul.btptesterandroid.Utils.clearBit;
 import static com.juul.btptesterandroid.Utils.setBit;
 import static com.juul.btptesterandroid.Utils.testBit;
 
-public class GAP implements BleManagerCallbacks, IGattAttrValueChanged {
+public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
 
     private Context context;
     private BTTester tester = null;
