@@ -1216,42 +1216,6 @@ public final class BTP {
         }
     }
 
-    public static final byte GATT_EV_NOTIFICATION = (byte) 0x80;
-
-    public static class GattNotificationEv {
-        byte addressType;
-        byte[] address;
-        byte type;
-        short handle;
-        short dataLen;
-        byte[] data;
-
-        public GattNotificationEv() {
-            addressType = 0;
-            address = null;
-            type = 0;
-            handle = 0;
-            dataLen = 0;
-            data = null;
-        }
-
-        public byte[] toBytes() {
-            ByteBuffer byteBuffer = ByteBuffer.allocate(1 + 6 + 1 + 2 + 2 + dataLen);
-            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-
-            byteBuffer.put(addressType);
-            byteBuffer.put(address);
-            byteBuffer.put(type);
-            byteBuffer.putShort(handle);
-            byteBuffer.putShort(dataLen);
-            if (dataLen > 0) {
-                byteBuffer.put(data);
-            }
-
-            return byteBuffer.array();
-        }
-    }
-
     public static final byte GATT_GET_ATTRIBUTES = 0x1c;
 
     public static class GattGetAttributesCmd {
@@ -1405,6 +1369,42 @@ public final class BTP {
             byteBuffer.putShort(valueLength);
             if (value != null) {
                 byteBuffer.put(value);
+            }
+
+            return byteBuffer.array();
+        }
+    }
+
+    public static final byte GATT_EV_NOTIFICATION = (byte) 0x80;
+
+    public static class GattNotificationEv {
+        byte addressType;
+        byte[] address;
+        byte type;
+        short handle;
+        short dataLen;
+        byte[] data;
+
+        public GattNotificationEv() {
+            addressType = 0;
+            address = null;
+            type = 0;
+            handle = 0;
+            dataLen = 0;
+            data = null;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(1 + 6 + 1 + 2 + 2 + dataLen);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            byteBuffer.put(addressType);
+            byteBuffer.put(address);
+            byteBuffer.put(type);
+            byteBuffer.putShort(handle);
+            byteBuffer.putShort(dataLen);
+            if (dataLen > 0) {
+                byteBuffer.put(data);
             }
 
             return byteBuffer.array();
