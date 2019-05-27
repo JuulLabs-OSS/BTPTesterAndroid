@@ -1151,7 +1151,8 @@ public class GAP implements BleManagerCallbacks, IGattAttrValueChanged {
             return;
         }
         String addr = Utils.btpToBdAddr(cmd.address);
-        Log.d("GATT", String.format("%d %s handle=0x%04x", cmd.addressType, addr, cmd.handle));
+        Log.d("GATT", String.format("%d %s handle=0x%04x len %d", cmd.addressType, addr,
+                Short.toUnsignedInt(cmd.handle), cmd.data.length));
 
         BleConnectionManager mng = findConnection(addr);
         if (mng == null) {
@@ -1188,7 +1189,9 @@ public class GAP implements BleManagerCallbacks, IGattAttrValueChanged {
             return;
         }
         String addr = Utils.btpToBdAddr(cmd.address);
-        Log.d("GATT", String.format("%d %s handle=0x%04x", cmd.addressType, addr, cmd.handle));
+        Log.d("GATT", String.format("%d %s handle=0x%04x handle=0x%04x len %d",
+                cmd.addressType, addr, Short.toUnsignedInt(cmd.handle),
+                Short.toUnsignedInt(cmd.offset), cmd.data.length));
 
         BleConnectionManager mng = findConnection(addr);
         if (mng == null) {
