@@ -1198,8 +1198,8 @@ public class GAP implements BleManagerCallbacks, IGattAttrValueChanged {
             return;
         }
 
-        if (!mng.gattWrite(Short.toUnsignedInt(cmd.handle), cmd.data,
-                this::onWriteLongResponse)) {
+        if (!mng.gattWriteLong(Short.toUnsignedInt(cmd.handle), Short.toUnsignedInt(cmd.offset),
+                cmd.data, this::onWriteLongResponse)) {
             tester.response(BTP_SERVICE_ID_GATT, GATT_WRITE, CONTROLLER_INDEX,
                     BTP_STATUS_FAILED);
         }
