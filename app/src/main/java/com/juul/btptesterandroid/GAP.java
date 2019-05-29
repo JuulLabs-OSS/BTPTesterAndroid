@@ -21,6 +21,7 @@ import androidx.annotation.NonNull;
 
 import com.juul.btptesterandroid.gatt.GattDBCharacteristic;
 import com.juul.btptesterandroid.gatt.GattDBDescriptor;
+import com.juul.btptesterandroid.gatt.GattDBIncludeService;
 import com.juul.btptesterandroid.gatt.GattDBService;
 
 import java.nio.ByteBuffer;
@@ -78,6 +79,7 @@ import static com.juul.btptesterandroid.BTP.GAP_STOP_DISCOVERY;
 import static com.juul.btptesterandroid.BTP.GAP_UNPAIR;
 import static com.juul.btptesterandroid.BTP.GATT_ADD_CHARACTERISTIC;
 import static com.juul.btptesterandroid.BTP.GATT_ADD_DESCRIPTOR;
+import static com.juul.btptesterandroid.BTP.GATT_ADD_INCLUDED_SERVICE;
 import static com.juul.btptesterandroid.BTP.GATT_ADD_SERVICE;
 import static com.juul.btptesterandroid.BTP.GATT_CFG_INDICATE;
 import static com.juul.btptesterandroid.BTP.GATT_CFG_NOTIFY;
@@ -85,6 +87,7 @@ import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_CHRC;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_DESC;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_ALL_PRIM_SVCS;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_CHRC_UUID;
+import static com.juul.btptesterandroid.BTP.GATT_DISC_FIND_INCLUDED;
 import static com.juul.btptesterandroid.BTP.GATT_DISC_PRIM_UUID;
 import static com.juul.btptesterandroid.BTP.GATT_EV_ATTR_VALUE_CHANGED;
 import static com.juul.btptesterandroid.BTP.GATT_EV_NOTIFICATION;
@@ -122,7 +125,7 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
     private int attributeCount;
     private List<BluetoothGattService> addedServices;
 
-    private BluetoothGattService lastAddedService;
+    private BluetoothGattService lastAddedService = null;
     private BluetoothGattCharacteristic lastAddedCharacteristic;
     private BluetoothGattDescriptor lastAddedDescriptor;
 
@@ -743,13 +746,21 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
         byte[] cmds = new byte[4];
 
         setBit(cmds, GATT_READ_SUPPORTED_COMMANDS);
+        setBit(cmds, GATT_ADD_SERVICE);
+        setBit(cmds, GATT_ADD_CHARACTERISTIC);
+        setBit(cmds, GATT_ADD_DESCRIPTOR);
+        setBit(cmds, GATT_ADD_INCLUDED_SERVICE);
+        setBit(cmds, GATT_SET_VALUE);
+        setBit(cmds, GATT_START_SERVER);
         setBit(cmds, GATT_DISC_ALL_PRIM_SVCS);
         setBit(cmds, GATT_DISC_PRIM_UUID);
+        setBit(cmds, GATT_DISC_FIND_INCLUDED);
         setBit(cmds, GATT_DISC_ALL_CHRC);
         setBit(cmds, GATT_DISC_CHRC_UUID);
         setBit(cmds, GATT_DISC_ALL_DESC);
         setBit(cmds, GATT_READ);
         setBit(cmds, GATT_READ_LONG);
+        setBit(cmds, GATT_WRITE);
         setBit(cmds, GATT_WRITE_LONG);
         setBit(cmds, GATT_CFG_NOTIFY);
         setBit(cmds, GATT_CFG_INDICATE);
@@ -773,9 +784,17 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
 
         Log.d("GATT", String.format("type %d uuid %s", cmd.type, uuid));
 
-        BluetoothGattService service = new BluetoothGattService(uuid, cmd.type);
-        lastAddedService = service;
-        addedServices.add(service);
+        if (lastAddedService != null) {
+            if (!gattServer.addService(lastAddedService)) {
+                Log.e("GATT", "Couldn't add service");
+                tester.response(BTP_SERVICE_ID_GATT, GATT_ADD_SERVICE, CONTROLLER_INDEX,
+                        BTP_STATUS_FAILED);
+                return;
+            }
+            lastAddedService = null;
+        }
+
+        lastAddedService = new BluetoothGattService(uuid, cmd.type);
         ++attributeCount;
 
         BTP.GattAddServiceRp rp = new BTP.GattAddServiceRp();
@@ -851,6 +870,49 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
                 rp.toBytes());
     }
 
+    private void addIncludedService(ByteBuffer data) {
+        Log.d("GATT", "addIncludedService");
+        BTP.GattAddIncludedServiceCmd cmd = BTP.GattAddIncludedServiceCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_ADD_INCLUDED_SERVICE, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+
+        Log.d("GATT", String.format("id %d ", Short.toUnsignedInt(cmd.svcId)));
+
+        if (lastAddedService == null) {
+            Log.e("GATT", "LastAddedService is null");
+            tester.response(BTP_SERVICE_ID_GATT, GATT_ADD_INCLUDED_SERVICE, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+
+        BluetoothGattService inc = Utils.findServiceByHandle(gattServer.getServices(),
+                Short.toUnsignedInt(cmd.svcId));
+
+        if (inc == null) {
+            Log.e("GATT", String.format("Couldn't find service id %d ",
+                    Short.toUnsignedInt(cmd.svcId)));
+            tester.response(BTP_SERVICE_ID_GATT, GATT_ADD_INCLUDED_SERVICE, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+
+        if (!lastAddedService.addService(inc)) {
+            Log.e("GATT", "Couldn't add included service");
+            tester.response(BTP_SERVICE_ID_GATT, GATT_ADD_INCLUDED_SERVICE, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        ++attributeCount;
+
+        BTP.GattAddIncludedServiceRp rp = new BTP.GattAddIncludedServiceRp();
+        rp.includedServiceId = (short) attributeCount;
+        tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_ADD_INCLUDED_SERVICE, CONTROLLER_INDEX,
+                rp.toBytes());
+    }
+
     private void setValue(ByteBuffer data) {
         Log.d("GATT", "setValue");
 
@@ -872,9 +934,11 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
     private void startServer(ByteBuffer data) {
         Log.d("GATT", "startServer");
 
-
-        for (BluetoothGattService svc : addedServices) {
-            gattServer.addService(svc);
+        if (lastAddedService != null && !gattServer.addService(lastAddedService)) {
+            Log.e("GATT", "Couldn't add service");
+            tester.response(BTP_SERVICE_ID_GATT, GATT_ADD_SERVICE, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
         }
 
         BTP.GattStartServerRp rp = new BTP.GattStartServerRp();
@@ -944,6 +1008,41 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
         rp.services = services.toArray(new BTP.GattService[0]);
         rp.servicesCount = (byte) services.size();
         tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_DISC_PRIM_UUID, CONTROLLER_INDEX,
+                rp.toBytes());
+    }
+
+    private void findIncluded(ByteBuffer data) {
+        Log.d("GATT", "findIncluded");
+        BTP.GattFindIncludedCmd cmd = BTP.GattFindIncludedCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GATT, GATT_DISC_FIND_INCLUDED, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+
+        String addr = Utils.btpToBdAddr(cmd.address);
+        Log.d("GATT", String.format("%d %s", cmd.addressType, addr));
+
+        BleConnectionManager mng = findConnection(addr);
+        if (mng == null) {
+            Log.e("GATT", "Connection not found");
+            tester.response(BTP_SERVICE_ID_GATT, GATT_DISC_FIND_INCLUDED,
+                    CONTROLLER_INDEX, BTP_STATUS_FAILED);
+            return;
+        }
+        List<GattDBIncludeService> includes = mng.getIncludedServices(
+                Short.toUnsignedInt(cmd.startHandle),
+                Short.toUnsignedInt(cmd.endHandle));
+
+        List<BTP.GattIncluded> services = new ArrayList<>();
+        for (GattDBIncludeService inc : includes) {
+            services.add(new BTP.GattIncluded(inc));
+        }
+
+        BTP.GattFindIncludedRp rp = new BTP.GattFindIncludedRp();
+        rp.included = services.toArray(new BTP.GattIncluded[0]);
+        rp.servicesCount = (byte) services.size();
+        tester.sendMessage(BTP_SERVICE_ID_GATT, GATT_DISC_FIND_INCLUDED, CONTROLLER_INDEX,
                 rp.toBytes());
     }
 
@@ -1351,7 +1450,6 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
         sendAttrValueChangedEv(value);
     }
 
-
     public void handleGATT(byte opcode, byte index, ByteBuffer data) {
         switch (opcode) {
             case GATT_READ_SUPPORTED_COMMANDS:
@@ -1366,6 +1464,9 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
             case GATT_ADD_DESCRIPTOR:
                 addDescriptor(data);
                 break;
+            case GATT_ADD_INCLUDED_SERVICE:
+                addIncludedService(data);
+                break;
             case GATT_SET_VALUE:
                 setValue(data);
                 break;
@@ -1377,6 +1478,9 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
                 break;
             case GATT_DISC_PRIM_UUID:
                 discPrimUuid(data);
+                break;
+            case GATT_DISC_FIND_INCLUDED:
+                findIncluded(data);
                 break;
             case GATT_DISC_ALL_CHRC:
                 discAllChrc(data);

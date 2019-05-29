@@ -558,6 +558,39 @@ public final class BTP {
         }
     }
 
+    public static final byte GATT_ADD_INCLUDED_SERVICE = 0x05;
+
+    public static class GattAddIncludedServiceCmd {
+        short svcId;
+
+        public GattAddIncludedServiceCmd(ByteBuffer byteBuffer) {
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            svcId = byteBuffer.getShort();
+        }
+
+        public static GattAddIncludedServiceCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 2) {
+                return null;
+            }
+
+            return new GattAddIncludedServiceCmd(byteBuffer);
+        }
+    }
+
+    public static class GattAddIncludedServiceRp {
+        short includedServiceId;
+
+        public GattAddIncludedServiceRp() {
+            includedServiceId = 0;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer buf = ByteBuffer.allocate(2);
+            buf.order(ByteOrder.LITTLE_ENDIAN);
+            buf.putShort(includedServiceId);
+            return buf.array();
+        }
+    }
     public static final byte GATT_SET_VALUE = 0x06;
 
     public static class GattSetValueCmd {
@@ -652,6 +685,7 @@ public final class BTP {
 
         public GattIncluded(GattDBIncludeService svc) {
             super(svc.getService());
+            attHandle = (short) svc.getHandle();
         }
 
         public GattIncluded(short attHandle, short startHandle, short endHandle,
@@ -838,25 +872,22 @@ public final class BTP {
     public static class GattFindIncludedCmd {
         byte addressType;
         byte[] address;
-        byte uuidLen;
-        byte[] uuid;
+        short startHandle;
+        short endHandle;
 
         public GattFindIncludedCmd(ByteBuffer byteBuffer) {
             address = new byte[6];
-
             addressType = byteBuffer.get();
             byteBuffer.get(address, 0, address.length);
             Utils.reverseBytes(address);
 
-            uuidLen = byteBuffer.get();
-            uuid = new byte[uuidLen];
-
-            byteBuffer.get(uuid, 0, uuidLen);
-            Utils.reverseBytes(uuid);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            startHandle = byteBuffer.getShort();
+            endHandle = byteBuffer.getShort();
         }
 
         public static GattFindIncludedCmd parse(ByteBuffer byteBuffer) {
-            if (byteBuffer.array().length < 10) {
+            if (byteBuffer.array().length < 11) {
                 return null;
             }
 

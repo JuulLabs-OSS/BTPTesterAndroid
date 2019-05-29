@@ -1,6 +1,5 @@
 package com.juul.btptesterandroid;
 
-import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
@@ -333,4 +332,21 @@ public class Utils {
     static final UUID CLIENT_CHARACTERISTIC_CONFIGURATION_UUID = UUID
             .fromString("00002902-0000-1000-8000-00805f9b34fb");
 
+
+    public static BluetoothGattService findServiceByHandle(List<BluetoothGattService> services,
+                                                           int handle) {
+        List<GattDBService> dbServices = Utils.initializeGattDB(services);
+
+        for (GattDBService svc : dbServices) {
+            Log.d("GATT", String.format("service UUID=%s TYPE=%d",
+                    svc.getService().getUuid(), svc.getService().getType()));
+
+            if (svc.getStartHandle() == handle) {
+                return svc.getService();
+            }
+
+        }
+
+        return null;
+    }
 }

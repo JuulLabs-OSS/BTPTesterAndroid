@@ -1,7 +1,6 @@
 package com.juul.btptesterandroid;
 
 import android.annotation.SuppressLint;
-import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
@@ -12,12 +11,9 @@ import android.bluetooth.BluetoothGattService;
 import android.util.Log;
 import android.util.Pair;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -30,7 +26,6 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
 
     private final BleManagerCallbacks managerCallbacks;
     private boolean peripheral = false;
-    private List<BluetoothGattService> addedServices;
     private BluetoothGattServer gattServer;
     private IGattServerCallbacks valueChangedCb;
     private PrepWriteContext<BluetoothGattCharacteristic> prepWriteCharContext;
@@ -39,7 +34,6 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
     public BTPGattServerCallback(BleManagerCallbacks managerCallbacks) {
         super();
         this.managerCallbacks = managerCallbacks;
-        addedServices = new ArrayList<>();
     }
 
     public void isPeripheral() {
@@ -78,7 +72,6 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
     public void onServiceAdded(int status, BluetoothGattService service) {
         super.onServiceAdded(status, service);
         Log.d("GATT", "onServiceAdded");
-        addedServices.add(service);
     }
 
     class PrepWriteContext<Attribute> {
@@ -353,7 +346,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
     public boolean setValue(int attrId, byte[] value) {
         int i = 0;
 
-        for (BluetoothGattService svc : addedServices) {
+        for (BluetoothGattService svc : gattServer.getServices()) {
             Log.d("GATT", String.format("service UUID=%s TYPE=%d",
                     svc.getUuid(), svc.getType()));
             ++i;

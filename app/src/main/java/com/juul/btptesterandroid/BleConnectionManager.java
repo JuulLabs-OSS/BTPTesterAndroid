@@ -4,7 +4,6 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
-import android.bluetooth.BluetoothGattService;
 import android.content.Context;
 import android.util.Log;
 
@@ -81,6 +80,24 @@ public class BleConnectionManager extends BleManager  {
         }
 
         return primSvcsUuid;
+    }
+
+    public List<GattDBIncludeService> getIncludedServices(int startHandle,
+                                                          int endHandle) {
+        List<GattDBIncludeService> inclSvcsUuid = new ArrayList<>();
+
+
+        for (GattDBService btGattSvc : mServices) {
+            List<GattDBIncludeService> includes = btGattSvc.getIncludedServices();
+
+            for (GattDBIncludeService inc : includes) {
+                if (inc.getHandle() >= startHandle && inc.getHandle() <= endHandle) {
+                    inclSvcsUuid.add(inc);
+                }
+            }
+        }
+
+        return inclSvcsUuid;
     }
 
     public List<GattDBCharacteristic> getAllCharacteristics(int startHandle,
