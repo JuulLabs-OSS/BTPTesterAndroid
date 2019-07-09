@@ -13,4 +13,10 @@ public interface IGattServerCallbacks {
     void descriptorValueChanged(BluetoothDevice device,
                                 BluetoothGattDescriptor descriptor,
                                 byte[] value);
+
+    void connectionParamUpdate(BluetoothDevice device,
+                               int interval,
+                               int latency,
+                               int timeout,
+                               int status);
 }

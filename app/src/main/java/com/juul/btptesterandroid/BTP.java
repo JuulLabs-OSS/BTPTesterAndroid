@@ -384,17 +384,27 @@ public final class BTP {
     public static class GapDeviceConnectedEv {
         byte addressType;
         byte[] address;
+        short connItvl;
+        short connLatency;
+        short supervisionTimeout;
 
         public GapDeviceConnectedEv() {
             addressType = 0;
             address = new byte[6];
+            connItvl = (short) 0xffff;
+            connLatency = (short) 0xffff;
+            supervisionTimeout = (short) 0xffff;
         }
 
         public byte[] toBytes() {
-            ByteBuffer byteBuffer = ByteBuffer.allocate(6 + 1);
+            ByteBuffer byteBuffer = ByteBuffer.allocate(6 + 1 + 2 + 2 + 2);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
 
             byteBuffer.put(addressType);
             byteBuffer.put(address);
+            byteBuffer.putShort(connItvl);
+            byteBuffer.putShort(connLatency);
+            byteBuffer.putShort(supervisionTimeout);
 
             return byteBuffer.array();
         }
@@ -416,6 +426,38 @@ public final class BTP {
 
             byteBuffer.put(addressType);
             byteBuffer.put(address);
+
+            return byteBuffer.array();
+        }
+    }
+
+    public static final byte GAP_EV_CONN_PARAM_UPDATE = (byte) 0x88;
+
+    public static class GapConnParamUpdateEv {
+        byte addressType;
+        byte[] address;
+        short connItvl;
+        short connLatency;
+        short supervisionTimeout;
+
+        public GapConnParamUpdateEv() {
+            addressType = 0;
+            address = new byte[6];
+            connItvl = (short) 0xffff;
+            connLatency = (short) 0xffff;
+            supervisionTimeout = (short) 0xffff;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(6 + 1 + 2 + 2 + 2);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            byteBuffer.put(addressType);
+            byteBuffer.put(address);
+            byteBuffer.putShort(connItvl);
+            byteBuffer.putShort(connLatency);
+            byteBuffer.putShort(supervisionTimeout);
+
 
             return byteBuffer.array();
         }

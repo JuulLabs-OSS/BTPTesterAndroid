@@ -343,6 +343,14 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
         Log.d("GATT", "onPhyRead");
     }
 
+    public void onConnectionUpdated(BluetoothDevice device, int interval, int latency, int timeout,
+                                    int status) {
+        Log.d("GAP", String.format("onConnectionUpdated addr=%s interval=%d latency=%d " +
+                "timeout=%d status=%d", device, interval, latency, timeout, status));
+
+        this.valueChangedCb.connectionParamUpdate(device, interval, latency, timeout, status);
+    }
+
     public boolean setValue(int attrId, byte[] value) {
         int i = 0;
 

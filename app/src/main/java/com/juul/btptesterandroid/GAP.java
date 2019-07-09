@@ -53,6 +53,7 @@ import static com.juul.btptesterandroid.BTP.BTP_STATUS_SUCCESS;
 import static com.juul.btptesterandroid.BTP.BTP_STATUS_UNKNOWN_CMD;
 import static com.juul.btptesterandroid.BTP.GAP_CONNECT;
 import static com.juul.btptesterandroid.BTP.GAP_DISCONNECT;
+import static com.juul.btptesterandroid.BTP.GAP_EV_CONN_PARAM_UPDATE;
 import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_CONNECTED;
 import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_DISCONNECTED;
 import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_FOUND;
@@ -675,6 +676,31 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
             }
         }
     };
+
+    private void sendConnParamUpdateEv(BluetoothDevice device, int interval,
+                                       int latency, int timeout, int status) {
+        Log.d("GAP", String.format("sendConnParamUpdateEv addr=%s interval=%d latency=%d " +
+                "timeout=%d status=%d", device, interval, latency, timeout, status));
+        BTP.GapConnParamUpdateEv ev = new BTP.GapConnParamUpdateEv();
+
+        ev.addressType = 0x01; /* assume random */
+
+        byte[] addr = btAddrToBytes(device.getAddress());
+        System.arraycopy(addr, 0, ev.address, 0, ev.address.length);
+
+        ev.connItvl = (short) interval;
+        ev.connLatency = (short) latency;
+        ev.supervisionTimeout = (short) timeout;
+
+        tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_EV_CONN_PARAM_UPDATE,
+                CONTROLLER_INDEX, ev.toBytes());
+    }
+
+    @Override
+    public void connectionParamUpdate(BluetoothDevice device, int interval, int latency,
+                                      int timeout, int status) {
+        sendConnParamUpdateEv(device, interval, latency, timeout, status);
+    }
 
     public void handleGAP(byte opcode, byte index, ByteBuffer data) {
         switch (opcode) {
