@@ -24,19 +24,31 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattServer;
 import android.bluetooth.BluetoothGattServerCallback;
 import android.bluetooth.BluetoothGattService;
+import android.telephony.CellIdentityCdma;
 import android.util.Log;
 import android.util.Pair;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import no.nordicsemi.android.ble.BleManagerCallbacks;
 
 import static android.bluetooth.BluetoothGatt.GATT_FAILURE;
+import static android.bluetooth.BluetoothGattCharacteristic.PERMISSION_READ;
+import static android.bluetooth.BluetoothGattCharacteristic.PERMISSION_WRITE;
+import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_INDICATE;
+import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_NOTIFY;
+import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_READ;
+import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_WRITE;
+import static com.juul.btptesterandroid.Utils.BT_BASE_UUID_STR;
 import static com.juul.btptesterandroid.Utils.CLIENT_CHARACTERISTIC_CONFIGURATION_UUID;
+import static com.juul.btptesterandroid.Utils.stringToUUID;
 
 public class BTPGattServerCallback extends BluetoothGattServerCallback {
 
@@ -76,8 +88,78 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
         }
     }
 
+    public static final String PTS_DB_UUID_FMT = "0000%s-8C26-476F-89A7-A108033A69C7";
+    public static final String PTS_SVC = String.format(PTS_DB_UUID_FMT, "0001");
+    public static final String PTS_CHR_READ_WRITE = String.format(PTS_DB_UUID_FMT, "0006");
+    public static final String PTS_DSC_READ_WRITE = String.format(PTS_DB_UUID_FMT, "000B");
+    public static final String PTS_CHR_READ_WRITE_LONG = String.format(PTS_DB_UUID_FMT, "0015");
+    public static final String PTS_DSC_READ_WRITE_LONG = String.format(PTS_DB_UUID_FMT, "001B");
+    public static final String PTS_CHR_NOTIFY = String.format(PTS_DB_UUID_FMT, "0025");
+    public static final String CCCD_UUID = BT_BASE_UUID_STR.replace("00000000", "00002902");
+    public static final String PTS_INC_SVC = String.format(PTS_DB_UUID_FMT, "001E");
+
+    byte[] shortValue = new byte[1];
+    byte[] longValue = new byte[100];
+
+    private void addTestIncludeService() {
+        BluetoothGattService incSvc = new BluetoothGattService(stringToUUID(PTS_INC_SVC),
+                BluetoothGattService.SERVICE_TYPE_PRIMARY);
+
+        gattServer.addService(incSvc);
+    }
+
+    private void addTestService(BluetoothGattService incService) {
+        BluetoothGattService svc = new BluetoothGattService(stringToUUID(PTS_SVC),
+                BluetoothGattService.SERVICE_TYPE_PRIMARY);
+
+        /* FIXME */
+//        svc.addService(gattServer.getServices().get(0));
+
+        BluetoothGattCharacteristic chrReadWrite = new BluetoothGattCharacteristic(
+                stringToUUID(PTS_CHR_READ_WRITE), PROPERTY_READ | PROPERTY_WRITE,
+                PERMISSION_READ | PERMISSION_WRITE);
+        chrReadWrite.setValue(shortValue);
+
+        BluetoothGattDescriptor dscReadWrite = new BluetoothGattDescriptor(
+                stringToUUID(PTS_DSC_READ_WRITE), PERMISSION_READ | PERMISSION_WRITE);
+        dscReadWrite.setValue(shortValue);
+
+        chrReadWrite.addDescriptor(dscReadWrite);
+
+
+        BluetoothGattDescriptor dscReadWriteLong = new BluetoothGattDescriptor(
+                stringToUUID(PTS_DSC_READ_WRITE_LONG),
+                PERMISSION_READ | PERMISSION_WRITE);
+        dscReadWriteLong.setValue(longValue);
+
+        chrReadWrite.addDescriptor(dscReadWriteLong);
+        svc.addCharacteristic(chrReadWrite);
+
+        BluetoothGattCharacteristic chrReadWriteLong = new BluetoothGattCharacteristic(
+                stringToUUID(PTS_CHR_READ_WRITE_LONG), PROPERTY_READ | PROPERTY_WRITE,
+                PERMISSION_READ | PERMISSION_WRITE);
+        chrReadWriteLong.setValue(longValue);
+        svc.addCharacteristic(chrReadWriteLong);
+
+        BluetoothGattCharacteristic chrNotify = new BluetoothGattCharacteristic(
+                stringToUUID(PTS_CHR_NOTIFY),
+                PROPERTY_NOTIFY | PROPERTY_INDICATE, PERMISSION_READ);
+        chrNotify.setValue(shortValue);
+
+        BluetoothGattDescriptor dscCCC = new BluetoothGattDescriptor(
+                stringToUUID(CCCD_UUID),
+                PERMISSION_READ | PERMISSION_WRITE);
+        chrNotify.addDescriptor(dscCCC);
+
+        svc.addCharacteristic(chrNotify);
+
+        gattServer.addService(svc);
+    }
+
     public void setGattServer(BluetoothGattServer server) {
         gattServer = server;
+
+        addTestIncludeService();
     }
 
     public void setGattAttributeValueChangedCallback(IGattServerCallbacks valueChangedCb) {
@@ -88,6 +170,10 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
     public void onServiceAdded(int status, BluetoothGattService service) {
         super.onServiceAdded(status, service);
         Log.d("GATT", "onServiceAdded");
+
+        if (service.getUuid().equals(stringToUUID(PTS_INC_SVC))) {
+            addTestService(service);
+        }
     }
 
     class PrepWriteContext<Attribute> {
@@ -270,6 +356,9 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
         }
 
         subs.add(new Pair<>(device, indication));
+
+        notifyCharacteristicChanged(characteristic);
+
         return 0;
     }
 

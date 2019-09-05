@@ -144,6 +144,12 @@ public class Utils {
         return new UUID(byteBuffer.getLong(), byteBuffer.getLong());
     }
 
+    public static UUID stringToUUID(String str) {
+        byte[] b = hexStringToByteArray(str.replace("-", ""));
+        ByteBuffer byteBuffer = ByteBuffer.wrap(b);
+        return new UUID(byteBuffer.getLong(), byteBuffer.getLong());
+    }
+
     public static boolean isBluetoothSIGUuid(UUID uuid) {
         String uuidStr = uuid.toString();
         String normalizedStr = "00000000" + uuidStr.substring(8);
