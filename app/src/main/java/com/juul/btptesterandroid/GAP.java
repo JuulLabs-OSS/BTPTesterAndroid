@@ -73,6 +73,7 @@ import static com.juul.btptesterandroid.BTP.GAP_EV_CONN_PARAM_UPDATE;
 import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_CONNECTED;
 import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_DISCONNECTED;
 import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_FOUND;
+import static com.juul.btptesterandroid.BTP.GAP_EV_SEC_LEVEL_CHANGED;
 import static com.juul.btptesterandroid.BTP.GAP_GENERAL_DISCOVERABLE;
 import static com.juul.btptesterandroid.BTP.GAP_PAIR;
 import static com.juul.btptesterandroid.BTP.GAP_READ_CONTROLLER_INDEX_LIST;
@@ -663,6 +664,16 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
     @Override
     public void onBonded(@NonNull BluetoothDevice device) {
         Log.d("GAP", String.format("onBonded %s", device));
+        BTP.GapSecLevelChangedEv ev = new BTP.GapSecLevelChangedEv();
+
+        ev.addressType = 0x01; /* assume random */
+
+        byte[] addr = btAddrToBytes(device.getAddress());
+        System.arraycopy(addr, 0, ev.address, 0, ev.address.length);
+        ev.level = 0;
+
+        tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_EV_SEC_LEVEL_CHANGED,
+                CONTROLLER_INDEX, ev.toBytes());
     }
 
     @Override

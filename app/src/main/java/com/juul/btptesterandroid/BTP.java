@@ -479,6 +479,32 @@ public final class BTP {
         }
     }
 
+    public static final byte GAP_EV_SEC_LEVEL_CHANGED = (byte) 0x89;
+
+    public static class GapSecLevelChangedEv {
+        byte addressType;
+        byte[] address;
+        byte level;
+
+        public GapSecLevelChangedEv() {
+            addressType = 0;
+            address = new byte[6];
+            level = 0;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(1 + 6 + 1);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            byteBuffer.put(addressType);
+            byteBuffer.put(address);
+            byteBuffer.put(level);
+
+
+            return byteBuffer.array();
+        }
+    }
+
     /* GATT Service */
     /* commands */
     public static final byte GATT_READ_SUPPORTED_COMMANDS = 0x01;
