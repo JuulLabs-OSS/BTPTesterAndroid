@@ -358,6 +358,31 @@ public final class BTP {
         }
     }
 
+    public static final byte GAP_PASSKEY_ENTRY = 0x13;
+
+    public static class GapPasskeyEntryCmd {
+        byte addressType;
+        byte[] address;
+        int passkey;
+
+        private GapPasskeyEntryCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+            passkey = byteBuffer.getInt();
+        }
+
+        public static GapPasskeyEntryCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 11) {
+                return null;
+            }
+
+            return new GapPasskeyEntryCmd(byteBuffer);
+        }
+    }
 
     public static final byte GAP_EV_DEVICE_FOUND = (byte) 0x81;
 
@@ -442,6 +467,104 @@ public final class BTP {
 
             byteBuffer.put(addressType);
             byteBuffer.put(address);
+
+            return byteBuffer.array();
+        }
+    }
+
+    public static final byte GAP_EV_PASSKEY_DISPLAY = (byte) 0x84;
+
+    public static class GapPasskeyDisplayEv {
+        byte addressType;
+        byte[] address;
+        int passkey;
+
+        public GapPasskeyDisplayEv() {
+            addressType = 0;
+            address = new byte[6];
+            passkey = 0;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(6 + 1 + 4);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            byteBuffer.put(addressType);
+            byteBuffer.put(address);
+            byteBuffer.putInt(passkey);
+
+            return byteBuffer.array();
+        }
+    }
+
+    public static final byte GAP_EV_PASSKEY_ENTRY_REQ = (byte) 0x85;
+
+    public static class GapPasskeyEntryEv {
+        byte addressType;
+        byte[] address;
+
+        public GapPasskeyEntryEv() {
+            addressType = 0;
+            address = new byte[6];
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(6 + 1);
+
+            byteBuffer.put(addressType);
+            byteBuffer.put(address);
+
+            return byteBuffer.array();
+        }
+    }
+
+    public static final byte GAP_EV_PASSKEY_CONFIRM_REQ = (byte) 0x86;
+
+    public static class GapPasskeyConfirmEv {
+        byte addressType;
+        byte[] address;
+        int passkey;
+
+        public GapPasskeyConfirmEv() {
+            addressType = 0;
+            address = new byte[6];
+            passkey = 0;
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(6 + 1 + 4);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            byteBuffer.put(addressType);
+            byteBuffer.put(address);
+            byteBuffer.putInt(passkey);
+
+            return byteBuffer.array();
+        }
+    }
+
+    public static final byte GAP_EV_IDENTITY_RESOLVED = (byte) 0x87;
+
+    public static class GapIdentityResolvedEv {
+        byte addressType;
+        byte[] address;
+        byte identityAddressType;
+        byte[] identityAddress;
+
+        public GapIdentityResolvedEv() {
+            addressType = 0;
+            address = new byte[6];
+            identityAddressType = 0;
+            identityAddress = new byte[6];
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(6 + 1 + 6 + 1);
+
+            byteBuffer.put(addressType);
+            byteBuffer.put(address);
+            byteBuffer.put(identityAddressType);
+            byteBuffer.put(identityAddress);
 
             return byteBuffer.array();
         }
