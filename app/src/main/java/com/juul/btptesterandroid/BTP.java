@@ -628,6 +628,27 @@ public final class BTP {
         }
     }
 
+    public static final byte GAP_EV_PAIRING_CONSENT = (byte) 0x8a;
+
+    public static class GapPairingConsentEv {
+        byte addressType;
+        byte[] address;
+
+        public GapPairingConsentEv() {
+            addressType = 0;
+            address = new byte[6];
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(1 + 6);
+
+            byteBuffer.put(addressType);
+            byteBuffer.put(address);
+
+            return byteBuffer.array();
+        }
+    }
+
     /* GATT Service */
     /* commands */
     public static final byte GATT_READ_SUPPORTED_COMMANDS = 0x01;

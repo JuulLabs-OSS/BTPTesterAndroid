@@ -61,6 +61,9 @@ import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat;
 import no.nordicsemi.android.support.v18.scanner.ScanResult;
 import no.nordicsemi.android.support.v18.scanner.ScanSettings;
 
+import static android.bluetooth.BluetoothDevice.BOND_BONDED;
+import static android.bluetooth.BluetoothDevice.BOND_NONE;
+import static android.bluetooth.BluetoothDevice.EXTRA_BOND_STATE;
 import static com.juul.btptesterandroid.BTP.BTP_INDEX_NONE;
 import static com.juul.btptesterandroid.BTP.BTP_SERVICE_ID_GAP;
 import static com.juul.btptesterandroid.BTP.BTP_SERVICE_ID_GATT;
@@ -73,9 +76,14 @@ import static com.juul.btptesterandroid.BTP.GAP_EV_CONN_PARAM_UPDATE;
 import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_CONNECTED;
 import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_DISCONNECTED;
 import static com.juul.btptesterandroid.BTP.GAP_EV_DEVICE_FOUND;
+import static com.juul.btptesterandroid.BTP.GAP_EV_PAIRING_CONSENT;
+import static com.juul.btptesterandroid.BTP.GAP_EV_PASSKEY_CONFIRM_REQ;
+import static com.juul.btptesterandroid.BTP.GAP_EV_PASSKEY_DISPLAY;
+import static com.juul.btptesterandroid.BTP.GAP_EV_PASSKEY_ENTRY_REQ;
 import static com.juul.btptesterandroid.BTP.GAP_EV_SEC_LEVEL_CHANGED;
 import static com.juul.btptesterandroid.BTP.GAP_GENERAL_DISCOVERABLE;
 import static com.juul.btptesterandroid.BTP.GAP_PAIR;
+import static com.juul.btptesterandroid.BTP.GAP_PASSKEY_ENTRY;
 import static com.juul.btptesterandroid.BTP.GAP_READ_CONTROLLER_INDEX_LIST;
 import static com.juul.btptesterandroid.BTP.GAP_READ_CONTROLLER_INFO;
 import static com.juul.btptesterandroid.BTP.GAP_READ_SUPPORTED_COMMANDS;
@@ -150,6 +158,7 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
     private static final byte CONTROLLER_INDEX = 0;
     private byte[] supportedSettings = new byte[4];
     private byte[] currentSettings = new byte[4];
+    private int pairingVariant;
 
     public byte init(Context context, BTTester tester, BluetoothAdapter bleAdapter,
                      BluetoothManager bleManager) {
@@ -177,8 +186,13 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
 
         connectionsMap = new HashMap<>();
 
+        pairingVariant = PAIRING_VARIANT_CONSENT;
+
         this.context.registerReceiver(incomingPairRequestReceiver,
                 new IntentFilter(BluetoothDevice.ACTION_PAIRING_REQUEST));
+
+        this.context.registerReceiver(bondStateChangedReceiver,
+                new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED));
 
         return BTP_STATUS_SUCCESS;
     }
@@ -224,6 +238,7 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
         }
 
         this.context.unregisterReceiver(incomingPairRequestReceiver);
+        this.context.unregisterReceiver(bondStateChangedReceiver);
     }
 
     public byte unregister() {
@@ -574,6 +589,33 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
                 CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
     }
 
+
+    private void passkeyEntry(ByteBuffer data) {
+        BTP.GapPasskeyEntryCmd cmd = BTP.GapPasskeyEntryCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GAP, GAP_PASSKEY_ENTRY, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        String addr = Utils.btpToBdAddr(cmd.address);
+        String passkey = String.format("%06d", cmd.passkey);
+
+        Log.d("GAP", String.format("passkeyEntry %d %s %s", cmd.addressType, addr, passkey));
+
+        BleConnectionManager mng = findConnection(addr);
+        if (mng == null) {
+            Log.e("GATT", "Connection not found");
+            tester.response(BTP_SERVICE_ID_GATT, GAP_UNPAIR,
+                    CONTROLLER_INDEX, BTP_STATUS_FAILED);
+            return;
+        }
+
+        mng.getBluetoothDevice().setPin(passkey.getBytes());
+
+        tester.response(BTP_SERVICE_ID_GAP, GAP_UNPAIR,
+                CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
+    }
+
     public void deviceFound(@NonNull ScanResult result) {
         Log.d("GAP", String.format("deviceFound %s", result));
 
@@ -656,6 +698,39 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
                 CONTROLLER_INDEX, ev.toBytes());
     }
 
+    protected static final int PAIRING_VARIANT_PIN = 0;
+    protected static final int PAIRING_VARIANT_PASSKEY = 1;
+    protected static final int PAIRING_VARIANT_PASSKEY_CONFIRMATION = 2;
+    protected static final int PAIRING_VARIANT_CONSENT = 3;
+    protected static final int PAIRING_VARIANT_DISPLAY_PASSKEY = 4;
+    protected static final int PAIRING_VARIANT_DISPLAY_PIN = 5;
+    protected static final int PAIRING_VARIANT_OOB_CONSENT = 6;
+
+    public void securityLevelChanged(BluetoothDevice device, int bondState) {
+        Log.d("GAP", String.format("securityLevelChanged %s %s", device, pairingVariant));
+        BTP.GapSecLevelChangedEv ev = new BTP.GapSecLevelChangedEv();
+
+        ev.addressType = 0x01; /* assume random */
+
+        byte[] addr = btAddrToBytes(device.getAddress());
+        System.arraycopy(addr, 0, ev.address, 0, ev.address.length);
+        ev.level = 1;
+
+        switch (pairingVariant) {
+            case PAIRING_VARIANT_PIN:
+            case PAIRING_VARIANT_PASSKEY_CONFIRMATION:
+            case PAIRING_VARIANT_DISPLAY_PASSKEY:
+                /* Assume this is LE Secure Connections pairing with encryption
+                using a 128-bit strength encryption key */
+                ev.level = 3;
+                break;
+        }
+
+        tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_EV_SEC_LEVEL_CHANGED,
+                CONTROLLER_INDEX, ev.toBytes());
+    }
+
+
     @Override
     public void onBondingRequired(@NonNull BluetoothDevice device) {
         Log.d("GAP", String.format("onBondingRequired %s", device));
@@ -664,16 +739,7 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
     @Override
     public void onBonded(@NonNull BluetoothDevice device) {
         Log.d("GAP", String.format("onBonded %s", device));
-        BTP.GapSecLevelChangedEv ev = new BTP.GapSecLevelChangedEv();
-
-        ev.addressType = 0x01; /* assume random */
-
-        byte[] addr = btAddrToBytes(device.getAddress());
-        System.arraycopy(addr, 0, ev.address, 0, ev.address.length);
-        ev.level = 0;
-
-        tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_EV_SEC_LEVEL_CHANGED,
-                CONTROLLER_INDEX, ev.toBytes());
+        securityLevelChanged(device, device.getBondState());
     }
 
     @Override
@@ -691,15 +757,118 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
         Log.d("GAP", String.format("onDeviceNotSupported %s", device));
     }
 
+    private final BroadcastReceiver bondStateChangedReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (BluetoothDevice.ACTION_BOND_STATE_CHANGED.equals(action)) {
+
+                BluetoothDevice dev = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                int bondState = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE,
+                        BluetoothDevice.ERROR);
+
+                int prevBondState = intent.getIntExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE,
+                        BluetoothDevice.ERROR);
+
+                Log.d("GAP", String.format("bondStateChangedReceiver %s %d %d", dev, bondState, prevBondState));
+
+                if (bondState == BOND_BONDED) {
+                    securityLevelChanged(dev, bondState);
+                }
+            }
+        }
+    };
+
+    public void passkeyEntryRequestEv(BluetoothDevice device) {
+        Log.d("GAP", String.format("passkeyEntryRequestEv %s", device));
+        BTP.GapPasskeyEntryEv ev = new BTP.GapPasskeyEntryEv();
+
+        ev.addressType = 0x01; /* assume random */
+
+        byte[] addr = btAddrToBytes(device.getAddress());
+        System.arraycopy(addr, 0, ev.address, 0, ev.address.length);
+
+        tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_EV_PASSKEY_ENTRY_REQ,
+                CONTROLLER_INDEX, ev.toBytes());
+    }
+
+    public void passkeyDisplayEv(BluetoothDevice device, int passkey) {
+        Log.d("GAP", String.format("passkeyDisplayEv %s %d", device, passkey));
+        BTP.GapPasskeyDisplayEv ev = new BTP.GapPasskeyDisplayEv();
+
+        ev.addressType = 0x01; /* assume random */
+
+        byte[] addr = btAddrToBytes(device.getAddress());
+        System.arraycopy(addr, 0, ev.address, 0, ev.address.length);
+
+        ev.passkey = passkey;
+
+        tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_EV_PASSKEY_DISPLAY,
+                CONTROLLER_INDEX, ev.toBytes());
+    }
+
+    public void passkeyConfirmEv(BluetoothDevice device, int passkey) {
+        Log.d("GAP", String.format("passkeyConfirmEv %s %d", device, passkey));
+        BTP.GapPasskeyConfirmEv ev = new BTP.GapPasskeyConfirmEv();
+
+        ev.addressType = 0x01; /* assume random */
+
+        byte[] addr = btAddrToBytes(device.getAddress());
+        System.arraycopy(addr, 0, ev.address, 0, ev.address.length);
+
+        ev.passkey = passkey;
+
+        tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_EV_PASSKEY_CONFIRM_REQ,
+                CONTROLLER_INDEX, ev.toBytes());
+    }
+
+    public void pairingConsentEv(BluetoothDevice device) {
+        Log.d("GAP", String.format("pairingConsentEv %s", device));
+        BTP.GapPairingConsentEv ev = new BTP.GapPairingConsentEv();
+
+        ev.addressType = 0x01; /* assume random */
+
+        byte[] addr = btAddrToBytes(device.getAddress());
+        System.arraycopy(addr, 0, ev.address, 0, ev.address.length);
+
+        tester.sendMessage(BTP_SERVICE_ID_GAP, GAP_EV_PAIRING_CONSENT,
+                CONTROLLER_INDEX, ev.toBytes());
+    }
+
     private final BroadcastReceiver incomingPairRequestReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (BluetoothDevice.ACTION_PAIRING_REQUEST.equals(action)) {
+
                 BluetoothDevice dev = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                Log.d("GAP", String.format("ActionPairingRequest %s", dev));
-                // FIXME: This does not work
-                // dev.setPairingConfirmation(true);
+                pairingVariant = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_VARIANT,
+                        BluetoothDevice.ERROR);
+                int passkey = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_KEY,
+                        BluetoothDevice.ERROR);
+
+                Log.d("GAP", String.format("ActionPairingRequest %s %d %d", dev,
+                        pairingVariant, passkey));
+
+                switch (pairingVariant) {
+                    case PAIRING_VARIANT_PIN:
+                        passkeyEntryRequestEv(dev);
+                        abortBroadcast();
+                        break;
+                    case PAIRING_VARIANT_DISPLAY_PASSKEY:
+                        passkeyDisplayEv(dev, passkey);
+                        abortBroadcast();
+                        break;
+                    case PAIRING_VARIANT_PASSKEY_CONFIRMATION:
+                        passkeyConfirmEv(dev, passkey);
+                        break;
+                    case PAIRING_VARIANT_CONSENT:
+                        pairingConsentEv(dev);
+                        break;
+                    default:
+                        Log.e("GAP", "Unsupported pairing variant");
+                        break;
+                }
             }
         }
     };
@@ -788,6 +957,9 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
                 break;
             case GAP_UNPAIR:
                 unpair(data);
+                break;
+            case GAP_PASSKEY_ENTRY:
+                passkeyEntry(data);
                 break;
             default:
                 tester.response(BTP_SERVICE_ID_GAP, opcode, index, BTP_STATUS_UNKNOWN_CMD);
