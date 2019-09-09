@@ -83,6 +83,7 @@ import static com.juul.btptesterandroid.BTP.GAP_EV_PASSKEY_ENTRY_REQ;
 import static com.juul.btptesterandroid.BTP.GAP_EV_SEC_LEVEL_CHANGED;
 import static com.juul.btptesterandroid.BTP.GAP_GENERAL_DISCOVERABLE;
 import static com.juul.btptesterandroid.BTP.GAP_PAIR;
+import static com.juul.btptesterandroid.BTP.GAP_PASSKEY_CONFIRM;
 import static com.juul.btptesterandroid.BTP.GAP_PASSKEY_ENTRY;
 import static com.juul.btptesterandroid.BTP.GAP_READ_CONTROLLER_INDEX_LIST;
 import static com.juul.btptesterandroid.BTP.GAP_READ_CONTROLLER_INFO;
@@ -614,6 +615,24 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
 
         tester.response(BTP_SERVICE_ID_GAP, GAP_PASSKEY_ENTRY,
                 CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
+    }
+
+    private void passkeyConfirm(ByteBuffer data) {
+        BTP.GapPasskeyConfirmCmd cmd = BTP.GapPasskeyConfirmCmd.parse(data);
+        if (cmd == null) {
+            tester.response(BTP_SERVICE_ID_GAP, GAP_PASSKEY_CONFIRM, CONTROLLER_INDEX,
+                    BTP_STATUS_FAILED);
+            return;
+        }
+        String addr = Utils.btpToBdAddr(cmd.address);
+
+        Log.d("GAP", String.format("passkeyConfirm %d %s %d",
+                cmd.addressType, addr, cmd.match));
+
+        /* Requires BLUETOOTH_PRIVILEGED, so this doesn't work */
+        /* mng.getBluetoothDevice().setPairingConfirmation(true); */
+
+        tester.response(BTP_SERVICE_ID_GAP, GAP_PASSKEY_CONFIRM,
                 CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
     }
 
@@ -961,6 +980,9 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
                 break;
             case GAP_PASSKEY_ENTRY:
                 passkeyEntry(data);
+                break;
+            case GAP_PASSKEY_CONFIRM:
+                passkeyConfirm(data);
                 break;
             default:
                 tester.response(BTP_SERVICE_ID_GAP, opcode, index, BTP_STATUS_UNKNOWN_CMD);

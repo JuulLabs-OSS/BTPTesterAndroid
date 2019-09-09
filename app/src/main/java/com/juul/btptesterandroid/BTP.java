@@ -384,6 +384,31 @@ public final class BTP {
         }
     }
 
+    public static final byte GAP_PASSKEY_CONFIRM = 0x14;
+
+    public static class GapPasskeyConfirmCmd {
+        byte addressType;
+        byte[] address;
+        byte match;
+
+        private GapPasskeyConfirmCmd(ByteBuffer byteBuffer) {
+            address = new byte[6];
+
+            addressType = byteBuffer.get();
+            byteBuffer.get(address, 0, address.length);
+            Utils.reverseBytes(address);
+            match = byteBuffer.get();
+        }
+
+        public static GapPasskeyConfirmCmd parse(ByteBuffer byteBuffer) {
+            if (byteBuffer.array().length < 8) {
+                return null;
+            }
+
+            return new GapPasskeyConfirmCmd(byteBuffer);
+        }
+    }
+
     public static final byte GAP_EV_DEVICE_FOUND = (byte) 0x81;
 
     public static class GapDeviceFoundEv {
