@@ -515,7 +515,7 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
         BleConnectionManager mng = findConnection(addr);
         if (mng == null) {
             Log.e("GATT", "Connection not found");
-            tester.response(BTP_SERVICE_ID_GATT, GAP_DISCONNECT,
+            tester.response(BTP_SERVICE_ID_GAP, GAP_DISCONNECT,
                     CONTROLLER_INDEX, BTP_STATUS_FAILED);
             return;
         }
@@ -553,7 +553,7 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
         BleConnectionManager mng = findConnection(addr);
         if (mng == null) {
             Log.e("GATT", "Connection not found");
-            tester.response(BTP_SERVICE_ID_GATT, GAP_PAIR,
+            tester.response(BTP_SERVICE_ID_GAP, GAP_PAIR,
                     CONTROLLER_INDEX, BTP_STATUS_FAILED);
             return;
         }
@@ -578,7 +578,7 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
         BleConnectionManager mng = findConnection(addr);
         if (mng == null) {
             Log.e("GATT", "Connection not found");
-            tester.response(BTP_SERVICE_ID_GATT, GAP_UNPAIR,
+            tester.response(BTP_SERVICE_ID_GAP, GAP_UNPAIR,
                     CONTROLLER_INDEX, BTP_STATUS_FAILED);
             return;
         }
@@ -605,14 +605,15 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
         BleConnectionManager mng = findConnection(addr);
         if (mng == null) {
             Log.e("GATT", "Connection not found");
-            tester.response(BTP_SERVICE_ID_GATT, GAP_UNPAIR,
+            tester.response(BTP_SERVICE_ID_GAP, GAP_PASSKEY_ENTRY,
                     CONTROLLER_INDEX, BTP_STATUS_FAILED);
             return;
         }
 
         mng.getBluetoothDevice().setPin(passkey.getBytes());
 
-        tester.response(BTP_SERVICE_ID_GAP, GAP_UNPAIR,
+        tester.response(BTP_SERVICE_ID_GAP, GAP_PASSKEY_ENTRY,
+                CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
                 CONTROLLER_INDEX, BTP_STATUS_SUCCESS);
     }
 
