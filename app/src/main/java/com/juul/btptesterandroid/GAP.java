@@ -40,13 +40,16 @@ import com.juul.btptesterandroid.gatt.GattDBDescriptor;
 import com.juul.btptesterandroid.gatt.GattDBIncludeService;
 import com.juul.btptesterandroid.gatt.GattDBService;
 
+import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import no.nordicsemi.android.ble.BleManagerCallbacks;
@@ -64,6 +67,7 @@ import no.nordicsemi.android.support.v18.scanner.ScanSettings;
 import static android.bluetooth.BluetoothDevice.BOND_BONDED;
 import static android.bluetooth.BluetoothDevice.BOND_NONE;
 import static android.bluetooth.BluetoothDevice.EXTRA_BOND_STATE;
+import static android.content.ContentValues.TAG;
 import static com.juul.btptesterandroid.BTP.BTP_INDEX_NONE;
 import static com.juul.btptesterandroid.BTP.BTP_SERVICE_ID_GAP;
 import static com.juul.btptesterandroid.BTP.BTP_SERVICE_ID_GATT;
@@ -141,6 +145,7 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
     private BluetoothManager bleManager = null;
 
     private Map<String, BleConnectionManager> connectionsMap;
+    private Set<BluetoothDevice> processedDevices;
 
     private BluetoothGattServer gattServer;
     private BTPGattServerCallback gattServerCallback;
@@ -179,6 +184,7 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
 
         attributeCount = 0;
         addedServices = new ArrayList<>();
+        processedDevices = new HashSet<>();
 
         this.scanner = BluetoothLeScannerCompat.getScanner();
         this.scanCallback = new ScanConnectCallback();
@@ -202,6 +208,16 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
         return connectionsMap.getOrDefault(addr, null);
     }
 
+    private void unpairDevice(BluetoothDevice dev) {
+        try {
+            Method m = dev.getClass()
+                    .getMethod("removeBond", (Class[]) null);
+            m.invoke(dev, (Object[]) null);
+        } catch (Exception e) {
+            Log.e(TAG, e.getMessage());
+        }
+    }
+
     public void cleanup() {
         try {
             for (Map.Entry<String, BleConnectionManager> entry : connectionsMap.entrySet()) {
@@ -215,6 +231,10 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
                 }
 
                 mng.removeBond().enqueue();
+            }
+
+            for (BluetoothDevice dev : processedDevices) {
+                unpairDevice(dev);
             }
 
         } catch (RequestFailedException e) {
@@ -707,6 +727,8 @@ public class GAP implements BleManagerCallbacks, IGattServerCallbacks {
     @Override
     public void onDeviceReady(@NonNull BluetoothDevice device) {
         Log.d("GAP", String.format("onDeviceReady %s", device));
+        processedDevices.add(device);
+
         BTP.GapDeviceConnectedEv ev = new BTP.GapDeviceConnectedEv();
 
         ev.addressType = 0x01; /* assume random */
