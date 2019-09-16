@@ -6,6 +6,8 @@ Allows testing of GAP and GATT profiles.
 
 #### Usage
 
+- Enable USB debugging
+- Keep the screen on
 - Upload the app to an Android phone
 - Enable Bluetooth, Location and Internet options
 - Make sure that the phone is reachable from the BTPTesterCore tool
