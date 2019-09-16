@@ -9,7 +9,7 @@ Allows testing of GAP and GATT profiles.
 - Upload the app to an Android phone
 - Enable Bluetooth, Location and Internet options
 - Make sure that the phone is reachable from the BTPTesterCore tool
-- Put the IP address of the phone into the BTPTesterCore configuration
+- Put the serial number of the phone into the BTPTesterCore configuration (`adb devices -l`)
 - After that the app should be able to communicate with the BTPTesterCore and require no user intervention
 
 
