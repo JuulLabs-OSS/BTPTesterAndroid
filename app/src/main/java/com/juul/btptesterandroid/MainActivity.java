@@ -26,9 +26,10 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
 import android.util.Log;
+import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -47,7 +48,6 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Log.d("TAG", "onCreate");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -56,10 +56,10 @@ public class MainActivity extends AppCompatActivity {
             finish();
         }
 
-        if (Build.VERSION.SDK_INT >= 23) {
-            // Marshmallow+ Permission APIs
-            handleRequestPermissions();
-        }
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        // Marshmallow+ Permission APIs
+        handleRequestPermissions();
 
         statusTextView = findViewById(R.id.statusText);
         statusTextView.setText("");
@@ -116,7 +116,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @TargetApi(Build.VERSION_CODES.M)
     private void handleRequestPermissions() {
         List<String> permissionsNeeded = new ArrayList<>();
 
@@ -154,7 +153,6 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
-    @TargetApi(Build.VERSION_CODES.M)
     private boolean addPermission(List<String> permissionsList, String permission) {
 
         if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {

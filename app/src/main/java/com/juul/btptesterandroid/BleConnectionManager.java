@@ -45,6 +45,8 @@ import no.nordicsemi.android.ble.callback.DataSentCallback;
 
 public class BleConnectionManager extends BleManager  {
 
+    public static final String GATT_TAG = "GATT";
+    public static final String GAP_TAG = "GAP";
     public List<GattDBService> mServices;
 
     /**
@@ -165,11 +167,11 @@ public class BleConnectionManager extends BleManager  {
 
     public GattDBCharacteristic findCharacteristic(int handle) {
         for (GattDBService svc : mServices) {
-            Log.d("GATT", String.format("service UUID=%s TYPE=%d START_HDL=%d END_HDL=%d",
+            Log.d(GATT_TAG, String.format("service UUID=%s TYPE=%d START_HDL=%d END_HDL=%d",
                     svc.getService().getUuid(), svc.getService().getType(),
                     svc.getStartHandle(), svc.getEndHandle()));
             for (GattDBCharacteristic chr : svc.getCharacteristics()) {
-                Log.d("GATT", String.format("characteristic UUID=%s PROPS=%d PERMS=%d" +
+                Log.d(GATT_TAG, String.format("characteristic UUID=%s PROPS=%d PERMS=%d" +
                                 "DEF_HDL=%d VAL_HDL=%d",
                         chr.getCharacteristic().getUuid(), chr.getCharacteristic().getProperties(),
                         chr.getCharacteristic().getPermissions(),
@@ -188,7 +190,7 @@ public class BleConnectionManager extends BleManager  {
         for (GattDBService svc : mServices) {
             for (GattDBCharacteristic chr : svc.getCharacteristics()) {
                 for (GattDBDescriptor dsc : chr.getDescriptors()) {
-                    Log.d("GATT", String.format("descriptor UUID=%s PERMS=%d HDL=%d",
+                    Log.d(GATT_TAG, String.format("descriptor UUID=%s PERMS=%d HDL=%d",
                             dsc.getDescriptor().getUuid(),
                             dsc.getDescriptor().getPermissions(),
                             dsc.getHandle()));
@@ -206,7 +208,7 @@ public class BleConnectionManager extends BleManager  {
         for (GattDBService svc : mServices) {
             for (GattDBCharacteristic chr : svc.getCharacteristics()) {
                 for (GattDBDescriptor dsc : chr.getDescriptors()) {
-                    Log.d("GATT", String.format("descriptor UUID=%s PERMS=%d HDL=%d",
+                    Log.d(GATT_TAG, String.format("descriptor UUID=%s PERMS=%d HDL=%d",
                             dsc.getDescriptor().getUuid(),
                             dsc.getDescriptor().getPermissions(),
                             dsc.getHandle()));
@@ -421,7 +423,7 @@ public class BleConnectionManager extends BleManager  {
     @Override
     protected void onPairingRequestReceived(@NonNull BluetoothDevice device, int variant) {
         super.onPairingRequestReceived(device, variant);
-        Log.d("GAP", String.format("onPairingRequestReceived %s %s", device,
+        Log.d(GAP_TAG, String.format("onPairingRequestReceived %s %s", device,
                 pairingVariantToString(variant)));
     }
 
@@ -435,14 +437,14 @@ public class BleConnectionManager extends BleManager  {
 
         @Override
         public boolean isRequiredServiceSupported(@NonNull final BluetoothGatt gatt) {
-            Log.d("GATT", String.format("isRequiredServiceSupported %s", gatt));
+            Log.d(GATT_TAG, String.format("isRequiredServiceSupported %s", gatt));
             mServices = Utils.initializeGattDB(gatt.getServices());
             return true;
         }
 
         @Override
         protected void onDeviceDisconnected() {
-            Log.d("GAP", "onDeviceDisconnected");
+            Log.d(GAP_TAG, "onDeviceDisconnected");
         }
     };
 }

@@ -44,6 +44,7 @@ import static com.juul.btptesterandroid.BTP.CORE_REGISTER_SERVICE;
 import static com.juul.btptesterandroid.BTP.CORE_UNREGISTER_SERVICE;
 
 public class BTTester {
+    private static final String TAG = "BTTester";
     private static final int PORT = 8765;
     private WebSocketServer wsServer = null;
     private WebSocket socket = null;
@@ -72,7 +73,7 @@ public class BTTester {
     private WebSocketServerAdapter adapter = new WebSocketServerAdapter() {
         @Override
         public void onOpen(WebSocket conn, ClientHandshake handshake) {
-            Log.d("TAG", "onOpen");
+            Log.d(TAG, "onOpen");
             if (socket == null) {
                 socket = conn;
                 sendMessage(BTP_SERVICE_ID_CORE, CORE_EV_IUT_READY, BTP_INDEX_NONE, null);
@@ -81,7 +82,7 @@ public class BTTester {
 
         @Override
         public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-            Log.d("TAG", "onClose");
+            Log.d(TAG, "onClose");
             if (socket == conn) {
                 cleanup();
             }
@@ -89,12 +90,12 @@ public class BTTester {
 
         @Override
         public void onMessage(WebSocket conn, String message) {
-            Log.d("TAG", "onStringMessage");
+            Log.d(TAG, "onStringMessage");
         }
 
         @Override
         public void onMessage(WebSocket conn, ByteBuffer message) {
-            Log.d("TAG", "onByteBufferMessage");
+            Log.d(TAG, "onByteBufferMessage");
             if (socket == conn) {
                 messageHandler(message.array());
             }
@@ -102,9 +103,7 @@ public class BTTester {
 
         @Override
         public void onError(WebSocket conn, Exception ex) {
-            Log.d("TAG", "onError");
-            Log.d("TAG", ex.getMessage());
-            Log.d("TAG", Arrays.toString(ex.getStackTrace()));
+            Log.e(TAG, ex.toString());
             // some errors like port binding failed may not be assignable to a specific websocket
             if (conn == null) {
                 socket = null;
@@ -115,7 +114,7 @@ public class BTTester {
 
         @Override
         public void onStart() {
-            Log.d("TAG", "onStart");
+            Log.d(TAG, "onStart");
         }
     };
 
@@ -215,7 +214,7 @@ public class BTTester {
     }
 
     public void messageHandler(byte[] bytes) {
-        Log.d("TAG", String.format("messageHandler %s", Utils.bytesToHex(bytes)));
+        Log.d(TAG, String.format("messageHandler %s", Utils.bytesToHex(bytes)));
         BTPMessage msg = BTPMessage.parse(bytes);
 
         if (msg == null) {
@@ -239,7 +238,7 @@ public class BTTester {
     }
 
     public void sendMessage(byte service, byte opcode, byte index, byte[] data) {
-        Log.d("TAG", String.format("sendMessage service: 0x%02x opcode: 0x%02x index: 0x%02x " +
+        Log.d(TAG, String.format("sendMessage service: 0x%02x opcode: 0x%02x index: 0x%02x " +
                         "len: %d data: %s",
                 service, opcode, index, data == null ? 0 : data.length, Utils.bytesToHex(data)));
         BTPMessage message = new BTPMessage(service, opcode, index, data);
@@ -248,7 +247,7 @@ public class BTTester {
         if (socket != null && socket.isOpen()) {
             socket.send(bytes);
         } else {
-            Log.e("TAG", "WebSocket is closed");
+            Log.e(TAG, "WebSocket is closed");
         }
     }
 
