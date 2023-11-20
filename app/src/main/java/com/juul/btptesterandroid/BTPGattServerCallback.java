@@ -24,18 +24,14 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattServer;
 import android.bluetooth.BluetoothGattServerCallback;
 import android.bluetooth.BluetoothGattService;
-import android.telephony.CellIdentityCdma;
 import android.util.Log;
 import android.util.Pair;
 
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 import no.nordicsemi.android.ble.BleManagerCallbacks;
 
@@ -52,6 +48,7 @@ import static com.juul.btptesterandroid.Utils.stringToUUID;
 
 public class BTPGattServerCallback extends BluetoothGattServerCallback {
 
+    private final static String TAG = "GATT";
     private final BleManagerCallbacks managerCallbacks;
     private boolean peripheral = false;
     private BluetoothGattServer gattServer;
@@ -112,8 +109,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
         BluetoothGattService svc = new BluetoothGattService(stringToUUID(PTS_SVC),
                 BluetoothGattService.SERVICE_TYPE_PRIMARY);
 
-        /* FIXME */
-//        svc.addService(gattServer.getServices().get(0));
+        svc.addService(incService);
 
         BluetoothGattCharacteristic chrReadWrite = new BluetoothGattCharacteristic(
                 stringToUUID(PTS_CHR_READ_WRITE), PROPERTY_READ | PROPERTY_WRITE,
@@ -169,7 +165,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
     @Override
     public void onServiceAdded(int status, BluetoothGattService service) {
         super.onServiceAdded(status, service);
-        Log.d("GATT", "onServiceAdded");
+        Log.d(TAG, "onServiceAdded");
 
         if (service.getUuid().equals(stringToUUID(PTS_INC_SVC))) {
             addTestService(service);
@@ -200,7 +196,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
     public void onCharacteristicReadRequest(BluetoothDevice device, int requestId, int offset,
                                             BluetoothGattCharacteristic characteristic) {
         super.onCharacteristicReadRequest(device, requestId, offset, characteristic);
-        Log.d("GATT", String.format("onCharacteristicReadRequest %d %d", requestId, offset));
+        Log.d(TAG, String.format("onCharacteristicReadRequest %d %d", requestId, offset));
         byte[] value = characteristic.getValue();
         if ((value.length - offset) <= 0) {
             gattServer.sendResponse(device, requestId, 0, offset, null);
@@ -220,7 +216,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
                                              int offset, byte[] value) {
         super.onCharacteristicWriteRequest(device, requestId, characteristic,
                 preparedWrite, responseNeeded, offset, value);
-        Log.d("GATT", String.format("onCharacteristicWriteRequest reqId %d offset %d " +
+        Log.d(TAG, String.format("onCharacteristicWriteRequest reqId %d offset %d " +
                         "prepWrite %b rsp %b", requestId, offset,
                 preparedWrite, responseNeeded));
 
@@ -250,7 +246,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
     public void onDescriptorReadRequest(BluetoothDevice device, int requestId,
                                         int offset, BluetoothGattDescriptor descriptor) {
         super.onDescriptorReadRequest(device, requestId, offset, descriptor);
-        Log.d("GATT", "onDescriptorReadRequest");
+        Log.d(TAG, "onDescriptorReadRequest");
         byte[] value = descriptor.getValue();
         if ((value.length - offset) <= 0) {
             gattServer.sendResponse(device, requestId, 0, offset, null);
@@ -270,7 +266,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
                                          int offset, byte[] value) {
         super.onDescriptorWriteRequest(device, requestId, descriptor,
                 preparedWrite, responseNeeded, offset, value);
-        Log.d("GATT", String.format("onDescriptorWriteRequest reqId %d offset %d " +
+        Log.d(TAG, String.format("onDescriptorWriteRequest reqId %d offset %d " +
                         "prepWrite %b rsp %b UUID %s", requestId, offset,
                 preparedWrite, responseNeeded, descriptor.getUuid()));
 
@@ -296,38 +292,38 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
             boolean supportsIndications = (characteristic.getProperties() &
                     BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0;
 
-            Log.d("GATT", String.format("cccd notifications %b indications %b",
+            Log.d(TAG, String.format("cccd notifications %b indications %b",
                     supportsNotifications, supportsIndications));
 
             if (!(supportsNotifications || supportsIndications)) {
                 status = BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED;
-                Log.d("GATT", "Not supported");
+                Log.d(TAG, "Not supported");
             } else if (value.length != 2) {
                 status = BluetoothGatt.GATT_INVALID_ATTRIBUTE_LENGTH;
-                Log.d("GATT", "invalid length");
+                Log.d(TAG, "invalid length");
             } else if (Arrays.equals(value, BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)) {
                 status = notificationsDisabled(device, characteristic);
                 descriptor.setValue(value);
-                Log.d("GATT", "notifications disable");
+                Log.d(TAG, "notifications disable");
             } else if (supportsNotifications &&
                     Arrays.equals(value, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)) {
                 status = notificationsEnabled(device, characteristic, false /* indicate */);
                 descriptor.setValue(value);
-                Log.d("GATT", "notifications enable");
+                Log.d(TAG, "notifications enable");
             } else if (supportsIndications &&
                     Arrays.equals(value, BluetoothGattDescriptor.ENABLE_INDICATION_VALUE)) {
                 status = notificationsEnabled(device, characteristic, true /* indicate */);
                 descriptor.setValue(value);
-                Log.d("GATT", "indications enable");
+                Log.d(TAG, "indications enable");
             } else {
                 status = BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED;
-                Log.d("GATT", "not supported 2");
+                Log.d(TAG, "not supported 2");
             }
         } else {
             status = BluetoothGatt.GATT_SUCCESS;
             descriptor.setValue(value);
 
-            Log.d("GATT", "not cccd");
+            Log.d(TAG, "not cccd");
         }
         if (responseNeeded) {
             gattServer.sendResponse(device, requestId, status,
@@ -343,7 +339,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
     private int notificationsEnabled(BluetoothDevice device,
                                      BluetoothGattCharacteristic characteristic,
                                      boolean indication) {
-        Log.d("GATT", "notificationsEnabled");
+        Log.d(TAG, "notificationsEnabled");
         Set<Pair<BluetoothDevice, Boolean>> subs = subscribed.get(characteristic);
         if (subs==null) {
             subs = new HashSet<>();
@@ -364,7 +360,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
 
     private int notificationsDisabled(BluetoothDevice device,
                                       BluetoothGattCharacteristic characteristic) {
-        Log.d("GATT", "notificationsDisabled");
+        Log.d(TAG, "notificationsDisabled");
         Set<Pair<BluetoothDevice, Boolean>> subs = subscribed.get(characteristic);
         if (subs==null) {
             subs = new HashSet<>();
@@ -382,7 +378,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
     }
 
     private void notifyCharacteristicChanged(BluetoothGattCharacteristic characteristic) {
-        Log.d("GATT", "notifyCharacteristicChanged");
+        Log.d(TAG, "notifyCharacteristicChanged");
 
         Set<Pair<BluetoothDevice, Boolean>> subs = subscribed.get(characteristic);
         if (subs==null) {
@@ -399,7 +395,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
     @Override
     public void onExecuteWrite(BluetoothDevice device, int requestId, boolean execute) {
         super.onExecuteWrite(device, requestId, execute);
-        Log.d("GATT", "onExecuteWrite");
+        Log.d(TAG, "onExecuteWrite");
 
         if (prepWriteCharContext != null) {
             if (execute) {
@@ -427,40 +423,32 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
     @Override
     public void onNotificationSent(BluetoothDevice device, int status) {
         super.onNotificationSent(device, status);
-        Log.d("GATT", "onNotificationSent");
+        Log.d(TAG, "onNotificationSent");
     }
 
     @Override
     public void onMtuChanged(BluetoothDevice device, int mtu) {
         super.onMtuChanged(device, mtu);
-        Log.d("GATT", "onMtuChanged");
+        Log.d(TAG, "onMtuChanged");
     }
 
     @Override
     public void onPhyUpdate(BluetoothDevice device, int txPhy, int rxPhy, int status) {
         super.onPhyUpdate(device, txPhy, rxPhy, status);
-        Log.d("GATT", "onPhyUpdate");
+        Log.d(TAG, "onPhyUpdate");
     }
 
     @Override
     public void onPhyRead(BluetoothDevice device, int txPhy, int rxPhy, int status) {
         super.onPhyRead(device, txPhy, rxPhy, status);
-        Log.d("GATT", "onPhyRead");
-    }
-
-    public void onConnectionUpdated(BluetoothDevice device, int interval, int latency, int timeout,
-                                    int status) {
-        Log.d("GAP", String.format("onConnectionUpdated addr=%s interval=%d latency=%d " +
-                "timeout=%d status=%d", device, interval, latency, timeout, status));
-
-        this.valueChangedCb.connectionParamUpdate(device, interval, latency, timeout, status);
+        Log.d(TAG, "onPhyRead");
     }
 
     public boolean setValue(int attrId, byte[] value) {
         int i = 0;
 
         for (BluetoothGattService svc : gattServer.getServices()) {
-            Log.d("GATT", String.format("service UUID=%s TYPE=%d",
+            Log.d(TAG, String.format("service UUID=%s TYPE=%d",
                     svc.getUuid(), svc.getType()));
             ++i;
             if (i == attrId) {
@@ -468,7 +456,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
             }
 
             for (BluetoothGattService inc : svc.getIncludedServices()) {
-                Log.d("GATT", String.format("include UUID=%s TYPE=%d",
+                Log.d(TAG, String.format("include UUID=%s TYPE=%d",
                         inc.getUuid(), inc.getType()));
                 ++i;
                 if (i == attrId) {
@@ -477,7 +465,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
             }
 
             for (BluetoothGattCharacteristic chr : svc.getCharacteristics()) {
-                Log.d("GATT", String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
+                Log.d(TAG, String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
                         chr.getUuid(), chr.getProperties(), chr.getPermissions()));
                 ++i;
                 if (i == attrId) {
@@ -487,7 +475,7 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
                 }
 
                 for (BluetoothGattDescriptor dsc : chr.getDescriptors()) {
-                    Log.d("GATT", String.format("descriptor UUID=%s PERMS=%d",
+                    Log.d(TAG, String.format("descriptor UUID=%s PERMS=%d",
                             dsc.getUuid(), dsc.getPermissions()));
                     ++i;
                     if (i == attrId) {

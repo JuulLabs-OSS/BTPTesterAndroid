@@ -17,7 +17,7 @@
 package com.juul.btptesterandroid;
 
 import android.bluetooth.BluetoothDevice;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.util.Log;
 
 import java.util.HashMap;
@@ -29,7 +29,7 @@ import no.nordicsemi.android.support.v18.scanner.ScanCallback;
 import no.nordicsemi.android.support.v18.scanner.ScanResult;
 
 public class ScanConnectCallback extends ScanCallback {
-
+    private final static String TAG = "GAP";
     private Map<String, ScanResult> results;
     private int errorCode;
     private IDeviceDiscovered deviceDiscoveredCb;
@@ -75,7 +75,7 @@ public class ScanConnectCallback extends ScanCallback {
     @Override
     public void onScanResult(int callbackType, @NonNull ScanResult result) {
         super.onScanResult(callbackType, result);
-        Log.d("GAP", String.format("onScanResult %s", result.toString()));
+        Log.d(TAG, String.format("onScanResult %s", result.toString()));
         deviceDiscovered(result);
     }
 
@@ -83,7 +83,7 @@ public class ScanConnectCallback extends ScanCallback {
     public void onBatchScanResults(@NonNull List<ScanResult> results) {
         super.onBatchScanResults(results);
         for (ScanResult result : results) {
-            Log.d("GAP", String.format("onBatchScanResult %s", result.toString()));
+            Log.d(TAG, String.format("onBatchScanResult %s", result.toString()));
             deviceDiscovered(result);
         }
     }
@@ -91,7 +91,7 @@ public class ScanConnectCallback extends ScanCallback {
     @Override
     public void onScanFailed(int errorCode) {
         super.onScanFailed(errorCode);
-        Log.d("GAP", String.format("onScanFailed %d", errorCode));
+        Log.d(TAG, String.format("onScanFailed %d", errorCode));
         this.errorCode = errorCode;
     }
 }

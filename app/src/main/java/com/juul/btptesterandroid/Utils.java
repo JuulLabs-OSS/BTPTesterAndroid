@@ -34,6 +34,8 @@ import java.util.UUID;
 
 public class Utils {
 
+    private static final String GATT_TAG = "GATT";
+
     static void setBit(byte[] data, int bit)
     {
         int byteIdx = (bit / 8);
@@ -178,31 +180,31 @@ public class Utils {
     }
 
     public static List<GattDBService> initializeGattDB(List<BluetoothGattService> services) {
-        Log.d("GATT", "initializeGattDB");
+        Log.d(GATT_TAG, "initializeGattDB");
         ArrayList<GattDBService> dbServices = new ArrayList<>();
         int curHandle = 1;
 
         for (BluetoothGattService svc : services) {
-            Log.d("GATT", String.format("service UUID=%s TYPE=%d",
+            Log.d(GATT_TAG, String.format("service UUID=%s TYPE=%d",
                     svc.getUuid(), svc.getType()));
 
             GattDBService service = new GattDBService(svc);
 
             for (BluetoothGattService inc : svc.getIncludedServices()) {
-                Log.d("GATT", String.format("include UUID=%s TYPE=%d",
+                Log.d(GATT_TAG, String.format("include UUID=%s TYPE=%d",
                         inc.getUuid(), inc.getType()));
 
                 service.addIncludeService(new GattDBIncludeService(new GattDBService(inc)));
             }
 
             for (BluetoothGattCharacteristic chr : svc.getCharacteristics()) {
-                Log.d("GATT", String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
+                Log.d(GATT_TAG, String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
                         chr.getUuid(), chr.getProperties(), chr.getPermissions()));
 
                 GattDBCharacteristic characteristic = new GattDBCharacteristic(chr);
 
                 for (BluetoothGattDescriptor dsc : chr.getDescriptors()) {
-                    Log.d("GATT", String.format("descriptor UUID=%s PERMS=%d",
+                    Log.d(GATT_TAG, String.format("descriptor UUID=%s PERMS=%d",
                             dsc.getUuid(), dsc.getPermissions()));
 
                     characteristic.addDescriptor(new GattDBDescriptor(dsc));
@@ -270,26 +272,26 @@ public class Utils {
         List<BTP.GattAttribute> attrs = new ArrayList<>();
 
         for (GattDBService svc : dbServices) {
-            Log.d("GATT", String.format("service UUID=%s TYPE=%d",
+            Log.d(GATT_TAG, String.format("service UUID=%s TYPE=%d",
                     svc.getService().getUuid(), svc.getService().getType()));
             attrs.add(new BTP.GattAttribute(svc));
 
             for (GattDBIncludeService inc : svc.getIncludedServices()) {
-                Log.d("GATT", String.format("include UUID=%s TYPE=%d",
+                Log.d(GATT_TAG, String.format("include UUID=%s TYPE=%d",
                         inc.getService().getService().getUuid(),
                         inc.getService().getService().getType()));
                 attrs.add(new BTP.GattAttribute(inc));
             }
 
             for (GattDBCharacteristic chr : svc.getCharacteristics()) {
-                Log.d("GATT", String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
+                Log.d(GATT_TAG, String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
                         chr.getCharacteristic().getUuid(),
                         chr.getCharacteristic().getProperties(),
                         chr.getCharacteristic().getPermissions()));
                 attrs.add(new BTP.GattAttribute(chr));
 
                 for (GattDBDescriptor dsc : chr.getDescriptors()) {
-                    Log.d("GATT", String.format("descriptor UUID=%s PERMS=%d",
+                    Log.d(GATT_TAG, String.format("descriptor UUID=%s PERMS=%d",
                             dsc.getDescriptor().getUuid(),
                             dsc.getDescriptor().getPermissions()));
                     attrs.add(new BTP.GattAttribute(dsc));
@@ -305,7 +307,7 @@ public class Utils {
         List<GattDBService> dbServices = Utils.initializeGattDB(services);
 
         for (GattDBService svc : dbServices) {
-            Log.d("GATT", String.format("service UUID=%s TYPE=%d",
+            Log.d(GATT_TAG, String.format("service UUID=%s TYPE=%d",
                     svc.getService().getUuid(), svc.getService().getType()));
 
             if (svc.getStartHandle() == handle) {
@@ -313,7 +315,7 @@ public class Utils {
             }
 
             for (GattDBIncludeService inc : svc.getIncludedServices()) {
-                Log.d("GATT", String.format("include UUID=%s TYPE=%d",
+                Log.d(GATT_TAG, String.format("include UUID=%s TYPE=%d",
                         inc.getService().getService().getUuid(),
                         inc.getService().getService().getType()));
 
@@ -323,7 +325,7 @@ public class Utils {
             }
 
             for (GattDBCharacteristic chr : svc.getCharacteristics()) {
-                Log.d("GATT", String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
+                Log.d(GATT_TAG, String.format("characteristic UUID=%s PROPS=%d PERMS=%d",
                         chr.getCharacteristic().getUuid(),
                         chr.getCharacteristic().getProperties(),
                         chr.getCharacteristic().getPermissions()));
@@ -337,7 +339,7 @@ public class Utils {
                 }
 
                 for (GattDBDescriptor dsc : chr.getDescriptors()) {
-                    Log.d("GATT", String.format("descriptor UUID=%s PERMS=%d",
+                    Log.d(GATT_TAG, String.format("descriptor UUID=%s PERMS=%d",
                             dsc.getDescriptor().getUuid(),
                             dsc.getDescriptor().getPermissions()));
 
@@ -360,7 +362,7 @@ public class Utils {
         List<GattDBService> dbServices = Utils.initializeGattDB(services);
 
         for (GattDBService svc : dbServices) {
-            Log.d("GATT", String.format("service UUID=%s TYPE=%d",
+            Log.d(GATT_TAG, String.format("service UUID=%s TYPE=%d",
                     svc.getService().getUuid(), svc.getService().getType()));
 
             if (svc.getStartHandle() == handle) {
