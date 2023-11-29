@@ -92,8 +92,10 @@ public class BTPGattServerCallback extends BluetoothGattServerCallback {
     public static final String PTS_CHR_READ_WRITE_LONG = String.format(PTS_DB_UUID_FMT, "0015");
     public static final String PTS_DSC_READ_WRITE_LONG = String.format(PTS_DB_UUID_FMT, "001B");
     public static final String PTS_CHR_NOTIFY = String.format(PTS_DB_UUID_FMT, "0025");
-    public static final String CCCD_UUID = BT_BASE_UUID_STR.replace("00000000", "00002902");
-    public static final String PTS_INC_SVC = String.format(PTS_DB_UUID_FMT, "001E");
+    public static final String CCCD_UUID = BT_BASE_UUID_STR.replace("00000000",
+            "00002902");
+    public static final String PTS_INC_SVC = BT_BASE_UUID_STR.replace("00000000",
+            "0000001E");
 
     byte[] shortValue = new byte[1];
     byte[] longValue = new byte[100];

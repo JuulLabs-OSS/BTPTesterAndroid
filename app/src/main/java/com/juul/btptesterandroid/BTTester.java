@@ -27,7 +27,6 @@ import org.java_websocket.server.WebSocketServer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 import static com.juul.btptesterandroid.BTP.BTP_INDEX_NONE;
 import static com.juul.btptesterandroid.BTP.BTP_SERVICE_ID_CORE;
